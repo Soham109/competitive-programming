@@ -13,13 +13,39 @@ const ll LINF = 4e18;
 #define all(c) (c).begin(), (c).end()
 #define rep(i, a, b) for (int i = (a); i < (b); i++)
 
+bool isPrime(int n) {
+    if(n<2) return false;
+    for(int i=2; i*i<=n; i++) {
+        if(n % i == 0) {
+            return false;
+        }
+    }
+    return true;
+}
 
+//sieve of erasthosis
+vi prime(int n) {
+    vi p;
+    int i=0;
+    while(p.size()<n+1) {
+        if(isPrime(i)){
+            p.push_back(i);
+        }
+        i++;
+    }
+    return p;
+}
 
 
 void solve() {
     int n;
     cin >> n;
-    vi a(n); rep(i, 0, n) cin >> a[i];
+    vi a = prime(n);
+
+    rep(i,0,n) {
+        cout<<1LL*a[i]*a[i+1]<<" ";
+    }
+    cout<<"\n";
 }
 
 int main() {
