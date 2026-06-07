@@ -1,4 +1,4 @@
-# SumofTwoValues
+# Sum of Two Values
 
 > [Problem on CSES](https://cses.fi/problemset/task/1640)
 

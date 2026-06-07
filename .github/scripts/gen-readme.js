@@ -1,4 +1,5 @@
 const fs = require('fs');
+const { sanitizeReadmeMd } = require('../../docs/sanitize-md.js');
 
 // ---------------------------------------------------------------------------
 // Config
@@ -90,6 +91,7 @@ async function codeforcesContext() {
 async function csesContext() {
   // Files are named by problem title; resolve title -> task id from the index.
   let id = null;
+  let name = null;
   // Normalize to alphanumeric-only so any filename style matches the title:
   // "Weird Algorithm", "weirdalgorithm", "WeirdAlgorithm", "weird_algorithm" -> "weirdalgorithm".
   const norm = (s) => s.toLowerCase().replace(/&amp;/g, '&').replace(/[^a-z0-9]/g, '');
@@ -100,12 +102,22 @@ async function csesContext() {
     const re = /href="\/problemset\/task\/(\d+)"[^>]*>([^<]+)</g;
     let m;
     while ((m = re.exec(html))) {
-      if (norm(m[2]) === target) { id = m[1]; break; }
+      if (norm(m[2]) === target) { id = m[1]; name = m[2].trim(); break; }
     }
+  }
+  if (!name) {
+    try {
+      const src = fs.readFileSync('docs/cses-categories.js', 'utf8');
+      const block = src.match(/window\.CSES_NAMES = (\{[\s\S]*?\});/);
+      if (block) {
+        const names = JSON.parse(block[1]);
+        name = names[target] || null;
+      }
+    } catch (_) {}
   }
   const url = id ? `https://cses.fi/problemset/task/${id}` : 'https://cses.fi/problemset/';
   const statement = id ? await jinaRead(url) : null;
-  return { label: 'CSES', url, statement, meta: null };
+  return { label: 'CSES', url, statement, meta: name ? { name } : null };
 }
 
 async function getContext() {
@@ -157,6 +169,7 @@ LATEX CRITICAL RULES — violations cause visible rendering bugs in the browser:
   BAD:  \`dp[0]\`$since the answer is $0$   GOOD: \`dp[0]\` since the answer is $0$
   BAD:  $n$\`arr\`                            GOOD: $n$ elements in \`arr\`
 - Pick ONE style per concept in each sentence: either $dp[i]$ (LaTeX) or \`dp[i]\` (code span). Never both for the same thing in the same clause.
+- NEVER put LaTeX commands inside backticks. WRONG: \`\\pmod{10^9+7}\` or \`dp[i - c_j] \\pmod{10^9 + 7}\`. CORRECT: $\\pmod{10^9+7}$ or $dp[i - c_j] \\pmod{10^9 + 7}$.
 - Sanity check before outputting: delete all $...$. The remaining prose must be grammatically correct English.`;
 
 const GOLD = `
@@ -268,7 +281,7 @@ async function main() {
     console.error(`Failed to produce a valid README for ${basename}`);
     process.exit(1);
   }
-  fs.writeFileSync(mdPath, readme + '\n');
+  fs.writeFileSync(mdPath, sanitizeReadmeMd(readme) + '\n');
   console.log(`Generated: ${mdPath}`);
 }
 

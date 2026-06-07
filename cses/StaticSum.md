@@ -1,4 +1,4 @@
-# StaticSum
+# Static Sum
 
 > [Problem on CSES](https://cses.fi/problemset/)
 

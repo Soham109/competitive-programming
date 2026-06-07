@@ -1,4 +1,4 @@
-# StaticMin
+# Static Min
 
 > [Problem on CSES](https://cses.fi/problemset/)
 

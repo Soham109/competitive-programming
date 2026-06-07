@@ -1,4 +1,4 @@
-# CoinCombinationsI
+# Coin Combinations I
 
 > [Problem on CSES](https://cses.fi/problemset/task/1635)
 
@@ -12,7 +12,7 @@ The key insight is that the number of ways to form a sum $x$ using the given coi
 
 2. Iterate over all possible sums $i$ from $1$ to $x$. For each sum, iterate over all coin values $c_j$ in the input.
 
-3. If the current coin value $c_j$ can contribute to the sum $i$ (i.e., $i \geq c_j$), update `dp[i]` by adding `dp[i - c_j] \pmod{10^9 + 7}`. This addition corresponds to extending all combinations that form $i - c_j$ by appending the coin $c_j$.
+3. If the current coin value $c_j$ can contribute to the sum $i$ (i.e., $i \geq c_j$), update `dp[i]` by adding $dp[i - c_j] \pmod{10^9 + 7}$. This addition corresponds to extending all combinations that form $i - c_j$ by appending the coin $c_j$.
 
 4. After processing all sums up to $x$, the value of `dp[x]` will contain the total number of distinct ways to form the sum $x$, modulo $10^9 + 7$.
 

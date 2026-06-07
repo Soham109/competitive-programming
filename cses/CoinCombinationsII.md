@@ -1,4 +1,4 @@
-# CoinCombinationsII
+# Coin Combinations II
 
 > [Problem on CSES](https://cses.fi/problemset/task/1636)
 

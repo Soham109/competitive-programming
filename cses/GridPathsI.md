@@ -1,4 +1,4 @@
-# GridPathsI
+# Grid Paths I
 
 > [Problem on CSES](https://cses.fi/problemset/task/1638)
 

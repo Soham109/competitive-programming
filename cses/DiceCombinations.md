@@ -1,4 +1,4 @@
-# DiceCombinations
+# Dice Combinations
 
 > [Problem on CSES](https://cses.fi/problemset/task/1633)
 
@@ -10,7 +10,7 @@ The key insight is that the number of ways to construct a sum $n$ can be express
 
 1. Define a dynamic programming array `dp` where `dp[i]` represents the number of ways to form sum $i$ using dice rolls. Initialize `dp[0] = 1` because there is exactly one way to form sum $0$: using no dice rolls.
 2. Iterate over all sums $i$ from $1$ to $n$. For each sum $i$, compute `dp[i]` as the sum of `dp[i-j]` for all $j \in [1, 6]$ where $i-j \geq 0$. This accounts for all ways to reach $i$ by adding a single dice roll to a valid smaller sum.
-3. Use modular arithmetic (`\pmod{10^9+7}`) at every step to ensure the result fits within the constraints and avoids overflow.
+3. Use modular arithmetic ($\pmod{10^9+7}$) at every step to ensure the result fits within the constraints and avoids overflow.
 4. Output `dp[n]`, which contains the total number of ways to form the target sum $n$.
 
 ## Complexity

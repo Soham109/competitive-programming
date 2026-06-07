@@ -1,4 +1,4 @@
-# MaxSubarraySum
+# Max Subarray Sum
 
 > [Problem on CSES](https://cses.fi/problemset/)
 

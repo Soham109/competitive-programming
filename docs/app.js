@@ -44,19 +44,31 @@
 
   const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-  // Pre-process markdown to fix common model mistakes that break KaTeX
-  function sanitizeMd(md) {
-    return md
-      .replace(/(`+)\$/g, "$1 $")   // closing backtick then $ → add space
-      .replace(/\$(`+)/g, "$ $1")   // $ then opening backtick → add space
-      // model closes a code span with $ instead of `
-      .replace(/`([^`\n]{1,80}?)\$(?=[\s,.):]|$)/gm, (_, inner) => `\`${inner}\``);
+  const sanitizeMd = globalThis.sanitizeReadmeMd || ((md) => md);
+
+  // CoinCombinationsI -> Coin Combinations I (fallback when CSES_NAMES has no entry)
+  function splitWords(s) {
+    return s
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
   }
 
   function solutionTitle(s) {
     if (s.platform === "codeforces") return cfNames[s.id.toUpperCase()] || s.id;
-    if (s.platform === "cses") return csesNames[norm(s.id)] || s.id;
+    if (s.platform === "cses") return csesNames[norm(s.id)] || splitWords(s.id);
     return s.id;
+  }
+
+  function contentHeading(s) {
+    if (s.platform === "codeforces" && cfNames[s.id.toUpperCase()]) {
+      return `${s.id} — ${cfNames[s.id.toUpperCase()]}`;
+    }
+    return solutionTitle(s);
+  }
+
+  function rewriteMdHeading(md, title) {
+    if (!/^# /m.test(md)) return md;
+    return md.replace(/^# .+\r?\n/m, `# ${title}\r\n`);
   }
 
   function platformLabel(folder) {
@@ -287,19 +299,12 @@
       currentCode = codeText;
 
       el.cPlatform.textContent = s.platformLabel;
-
-      if (s.platform === "codeforces" && cfNames[s.id.toUpperCase()]) {
-        el.cId.textContent = `${s.id} — ${cfNames[s.id.toUpperCase()]}`;
-      } else if (s.platform === "cses" && csesNames[norm(s.id)]) {
-        el.cId.textContent = csesNames[norm(s.id)];
-      } else {
-        el.cId.textContent = s.id;
-      }
+      el.cId.textContent = contentHeading(s);
 
       el.cSource.href = `https://github.com/${owner}/${repo}/blob/${branch}/${s.codePath}`;
 
       if (s.mdPath && mdRes && mdRes.ok) {
-        const rawMd = await mdRes.text();
+        const rawMd = rewriteMdHeading(await mdRes.text(), solutionTitle(s));
         el.desc.innerHTML = marked.parse(sanitizeMd(rawMd));
         renderMathInElement(el.desc, {
           delimiters: [
