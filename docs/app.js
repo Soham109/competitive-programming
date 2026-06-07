@@ -63,13 +63,12 @@
     const files = data.tree.filter((n) => n.type === "blob").map((n) => n.path);
     const ignore = new Set(CFG.ignore.map((s) => s.toLowerCase()));
 
-    // group files by directory
     const mdSet = new Set(files.filter((p) => p.toLowerCase().endsWith(".md")));
 
     const out = [];
     for (const path of files) {
       const parts = path.split("/");
-      if (parts.length < 2) continue; // must live under a platform folder
+      if (parts.length < 2) continue;
       const platform = parts[0];
       if (ignore.has(platform.toLowerCase())) continue;
       const e = ext(path);
@@ -77,16 +76,12 @@
 
       const dir = parts.slice(0, -1).join("/");
       const base = basename(path);
-      // Optional description: a sibling <base>.md, OR a README.md in the same
-      // folder. If neither exists, the code still shows — just no description.
       const sibling = `${dir}/${base}.md`;
       const readme = `${dir}/README.md`;
       let mdPath = null;
       if (mdSet.has(sibling)) mdPath = sibling;
       else if (mdSet.has(readme)) mdPath = readme;
 
-      // id: prefer the deepest folder name when a folder README pairs it,
-      // else the file basename.
       const id = mdPath === readme && parts.length > 2 ? parts[parts.length - 2] : base;
 
       out.push({
@@ -99,7 +94,6 @@
       });
     }
 
-    // sort: platform, then natural id
     out.sort((a, b) =>
       a.platformLabel.localeCompare(b.platformLabel) ||
       a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: "base" })
@@ -193,7 +187,7 @@
         el.desc.hidden = false;
       } else {
         el.desc.innerHTML = "";
-        el.desc.hidden = true; // no README -> no description, code still shows
+        el.desc.hidden = true;
       }
       el.fileName.textContent = s.codePath.split("/").pop();
       renderCode(codeText, extLang[ext(s.codePath)]);
@@ -205,8 +199,6 @@
     } catch (err) {
       el.loading.hidden = true;
       el.empty.hidden = false;
-      el.empty.querySelector(".state-inner").innerHTML =
-        `<h1>Couldn’t load</h1><p>${err.message}</p>`;
     }
   }
 
@@ -219,8 +211,16 @@
   // ---- Routing ----
   function route() {
     const key = decodeURIComponent(location.hash.slice(1));
-    if (key) openSolution(key);
-    else { showEmpty(); highlightActive(); }
+    if (key && solutions.find((x) => x.key === key)) {
+      openSolution(key);
+    } else if (solutions.length > 0) {
+      const first = solutions[0];
+      history.replaceState(null, "", `#${encodeURIComponent(first.key)}`);
+      openSolution(first.key);
+    } else {
+      showEmpty();
+      highlightActive();
+    }
   }
 
   // ---- Events ----
