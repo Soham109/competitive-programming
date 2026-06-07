@@ -131,7 +131,7 @@ Produce EXACTLY these sections and nothing else:
 2-5 sentences. State the SINGLE key observation that cracks the problem and WHY it is true (the "aha"): an invariant, a divisibility fact, a greedy exchange argument, a reformulation, etc. Name any non-obvious math fact explicitly. Do NOT describe code structure here.
 
 ## Approach
-A derivation, not a code walkthrough. Lead the reader from the observation to the algorithm: what quantity is tracked, what choices exist, why the method is correct and sufficient. Numbered list of 3-6 GENUINE reasoning steps. Every step must carry justification ("because...", "this guarantees...", "it suffices to..."). BANNED narration: "read the input", "initialize a variable", "loop over the array", "call the function", "print the answer".
+A derivation, not a code walkthrough. Lead the reader from the observation to the algorithm: what quantity is tracked, what choices exist, why the method is correct and sufficient. Numbered list of 3-6 GENUINE reasoning steps. Each step starts DIRECTLY with the substance — do NOT prefix steps with a bold label like "**Count constraints:**" or "**Validate:**". Every step must carry justification ("because...", "this guarantees...", "it suffices to..."). BANNED narration: "read the input", "initialize a variable", "loop over the array", "call the function", "print the answer".
 
 ## Complexity
 - **Time:** $O(\\cdot)$ — one clause tied to the real bottleneck.
