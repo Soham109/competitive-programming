@@ -145,7 +145,17 @@ HARD RULES:
 - Allowed macros: \\cdot \\log \\sqrt{} \\leq \\geq \\in \\pmod{} \\equiv \\lceil \\rceil \\lfloor \\rfloor \\sum \\frac{}{}.
 - Reference real variable/function names from the code in \`backticks\` when pointing at something concrete.
 - Be direct and technical. No filler ("We can observe that", "It is clear", "Simply", "Note that").
-- Output ONLY the markdown starting at "# ${basename}". Do NOT wrap it in code fences.`;
+- Output ONLY the markdown starting at "# ${basename}". Do NOT wrap it in code fences.
+
+LATEX CRITICAL RULES — violations cause visible rendering bugs in the browser:
+- $...$ must contain ONLY a valid LaTeX math expression: variables, formulas, indices, complexities.
+  NEVER put English prose inside $...$: no $since$, $if we$, $the sum of$, $output -1$.
+- Every $ must be CLOSED on the SAME LINE. A sentence must never have an unmatched $.
+- NEVER place a backtick (\`) immediately adjacent to a $ sign with no space between them.
+  BAD:  \`dp[0]\`$since the answer is $0$   GOOD: \`dp[0]\` since the answer is $0$
+  BAD:  $n$\`arr\`                            GOOD: $n$ elements in \`arr\`
+- Pick ONE style per concept in each sentence: either $dp[i]$ (LaTeX) or \`dp[i]\` (code span). Never both for the same thing in the same clause.
+- Sanity check before outputting: delete all $...$. The remaining prose must be grammatically correct English.`;
 
 const GOLD = `
 === GOLD-STANDARD EXAMPLE (explains WHY, not WHAT) ===
@@ -200,7 +210,8 @@ function cleanOutput(text) {
   let out = text.trim();
   out = out.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();   // reasoning models
   out = out.replace(/^```(?:markdown|md)?\s*\n/, '').replace(/\n```\s*$/, '').trim(); // outer fence
-  const h = out.indexOf(`# ${basename}`);
+  // Find the heading line (may be "# 2050C" or "# 2050C — Name")
+  const h = out.search(new RegExp(`^# ${basename}`, 'm'));
   if (h > 0) out = out.slice(h).trim();
   return out;
 }
@@ -243,7 +254,7 @@ async function main() {
   const ctx = await getContext();
   console.log(`Context for ${basename}: statement=${ctx.statement ? 'yes' : 'no'}, meta=${ctx.meta ? 'yes' : 'no'}, model=${MODEL}`);
   const readme = await callModel(buildPrompt(ctx));
-  if (!readme || !readme.startsWith(`# ${basename}`)) {
+  if (!readme || !readme.match(new RegExp(`^# ${basename}`))) {
     console.error(`Failed to produce a valid README for ${basename}`);
     process.exit(1);
   }
