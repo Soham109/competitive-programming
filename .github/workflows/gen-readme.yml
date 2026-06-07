@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      models: read
 
     steps:
       - uses: actions/checkout@v4
@@ -28,7 +29,6 @@ jobs:
         id: find
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            # Scan all .cpp files in codeforces/ and cses/
             ALL=$(find codeforces cses -name "*.cpp" -o -name "*.cc" -o -name "*.cxx" 2>/dev/null | sort || true)
           else
             ALL=$(git diff --name-only --diff-filter=A HEAD~1 HEAD 2>/dev/null | grep -E '\.(cpp|cc|cxx)$' || true)
@@ -46,10 +46,10 @@ jobs:
           echo "needs=$NEEDS" >> "$GITHUB_OUTPUT"
           echo "Files needing README: $NEEDS"
 
-      - name: Generate READMEs via Claude
+      - name: Generate READMEs via GitHub Models (gpt-4o-mini)
         if: steps.find.outputs.needs != ''
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           for f in ${{ steps.find.outputs.needs }}; do
             echo "Generating README for $f"
