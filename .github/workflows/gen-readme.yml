@@ -6,6 +6,12 @@ on:
     paths:
       - 'codeforces/**.cpp'
       - 'cses/**.cpp'
+  workflow_dispatch:
+    inputs:
+      scan_all:
+        description: 'Generate READMEs for all .cpp files missing one'
+        required: false
+        default: 'true'
 
 jobs:
   gen-readme:
@@ -18,18 +24,21 @@ jobs:
         with:
           fetch-depth: 2
 
-      - name: Find new .cpp files needing a README
+      - name: Find .cpp files needing a README
         id: find
         run: |
-          # Get .cpp files added in this push (not modified, not deleted)
-          ADDED=$(git diff --name-only --diff-filter=A HEAD~1 HEAD 2>/dev/null | grep -E '\.(cpp|cc|cxx)$' || true)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # Scan all .cpp files in codeforces/ and cses/
+            ALL=$(find codeforces cses -name "*.cpp" -o -name "*.cc" -o -name "*.cxx" 2>/dev/null | sort || true)
+          else
+            ALL=$(git diff --name-only --diff-filter=A HEAD~1 HEAD 2>/dev/null | grep -E '\.(cpp|cc|cxx)$' || true)
+          fi
+
           NEEDS=""
-          for f in $ADDED; do
+          for f in $ALL; do
             base="${f%.*}"
             fname=$(basename "$f" | sed 's/\.[^.]*$//')
-            # Skip Template files
             if [ "$fname" = "Template" ]; then continue; fi
-            # Skip if .md already exists
             if [ -f "${base}.md" ]; then continue; fi
             NEEDS="$NEEDS $f"
           done
