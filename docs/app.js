@@ -27,14 +27,21 @@
     repoLink: document.getElementById("repo-link"),
     brandName: document.getElementById("brand-name"),
     menuToggle: document.getElementById("menu-toggle"),
+    sidebarToggle: document.getElementById("sidebar-toggle"),
+    sidebarExpand: document.getElementById("sidebar-expand"),
   };
 
   el.repoLink.href = `https://github.com/${owner}/${repo}`;
 
-  let solutions = []; // {platform, platformLabel, id, codePath, mdPath, key}
+  let solutions = [];
   let currentCode = "";
+  // norm(name) -> CSES category string; populated at boot
+  let csesCategories = new Map();
 
   marked.setOptions({ gfm: true, breaks: false });
+
+  // Normalize to alphanumeric-only for fuzzy name matching
+  const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 
   function platformLabel(folder) {
     return CFG.platforms[folder.toLowerCase()] ||
@@ -52,6 +59,30 @@
     return dot === -1 ? "" : f.slice(dot + 1).toLowerCase();
   }
 
+  // ---- Load CSES category map ----
+  async function loadCsesCategories() {
+    try {
+      const res = await fetch("https://cses.fi/problemset/", {
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!res.ok) return;
+      const html = await res.text();
+      // Interleave <h2>Category</h2> markers and <li class="task"> links by position
+      const tokens = [];
+      const h2Re = /<h2>([^<]+)<\/h2>/g;
+      const taskRe = /class="task"><a href="[^"]*\/task\/\d+"[^>]*>([^<]+)<\/a>/g;
+      let m;
+      while ((m = h2Re.exec(html))) tokens.push({ pos: m.index, type: "cat", name: m[1].trim() });
+      while ((m = taskRe.exec(html))) tokens.push({ pos: m.index, type: "task", name: m[1].trim() });
+      tokens.sort((a, b) => a.pos - b.pos);
+      let cur = "Other";
+      for (const t of tokens) {
+        if (t.type === "cat") cur = t.name;
+        else csesCategories.set(norm(t.name), cur);
+      }
+    } catch (_) {}
+  }
+
   // ---- Build the index from one recursive tree call ----
   async function loadIndex() {
     const url = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
@@ -62,7 +93,6 @@
 
     const files = data.tree.filter((n) => n.type === "blob").map((n) => n.path);
     const ignore = new Set(CFG.ignore.map((s) => s.toLowerCase()));
-
     const mdSet = new Set(files.filter((p) => p.toLowerCase().endsWith(".md")));
 
     const out = [];
@@ -84,14 +114,7 @@
 
       const id = mdPath === readme && parts.length > 2 ? parts[parts.length - 2] : base;
 
-      out.push({
-        platform,
-        platformLabel: platformLabel(platform),
-        id,
-        codePath: path,
-        mdPath,
-        key: path,
-      });
+      out.push({ platform, platformLabel: platformLabel(platform), id, codePath: path, mdPath, key: path });
     }
 
     out.sort((a, b) =>
@@ -102,33 +125,72 @@
   }
 
   // ---- Sidebar render ----
+  function makeItem(s) {
+    const a = document.createElement("a");
+    a.className = "item";
+    a.textContent = s.id;
+    a.href = `#${encodeURIComponent(s.key)}`;
+    a.dataset.key = s.key;
+    return a;
+  }
+
+  function makeGroupLabel(text, count, collapseKey, targetEl, cls = "group-label") {
+    const div = document.createElement("div");
+    div.className = cls;
+    div.innerHTML = `<span>${text}</span><span class="group-label-right">${count != null ? `<span class="count">${count}</span>` : ""}<span class="chevron"></span></span>`;
+    div.addEventListener("click", () => {
+      const collapsed = targetEl.classList.toggle("collapsed");
+      if (collapseKey) localStorage.setItem(collapseKey, collapsed ? "1" : "0");
+    });
+    return div;
+  }
+
   function renderNav(filterText = "") {
     const q = filterText.trim().toLowerCase();
-    const groups = new Map();
+
+    // Group by platform
+    const platforms = new Map();
     for (const s of solutions) {
       if (q && !(`${s.platformLabel} ${s.id}`.toLowerCase().includes(q))) continue;
-      if (!groups.has(s.platformLabel)) groups.set(s.platformLabel, []);
-      groups.get(s.platformLabel).push(s);
+      if (!platforms.has(s.platformLabel)) platforms.set(s.platformLabel, []);
+      platforms.get(s.platformLabel).push(s);
     }
 
     el.nav.innerHTML = "";
-    if (groups.size === 0) {
+    if (platforms.size === 0) {
       el.nav.innerHTML = `<p class="muted" style="padding:14px 20px">No matches.</p>`;
       return;
     }
-    for (const [label, items] of groups) {
+
+    for (const [label, items] of platforms) {
       const g = document.createElement("div");
       g.className = "group";
-      g.innerHTML =
-        `<div class="group-label"><span>${label}</span><span class="count">${items.length}</span></div>`;
-      for (const s of items) {
-        const a = document.createElement("a");
-        a.className = "item";
-        a.textContent = s.id;
-        a.href = `#${encodeURIComponent(s.key)}`;
-        a.dataset.key = s.key;
-        g.appendChild(a);
+      const gKey = `nav-collapsed:${label}`;
+      if (localStorage.getItem(gKey) === "1") g.classList.add("collapsed");
+
+      g.appendChild(makeGroupLabel(label, items.length, gKey, g));
+
+      // CSES: nest by category when categories are loaded and not filtering
+      if (label === "CSES" && csesCategories.size > 0 && !q) {
+        const cats = new Map();
+        for (const s of items) {
+          const cat = csesCategories.get(norm(s.id)) || "Other";
+          if (!cats.has(cat)) cats.set(cat, []);
+          cats.get(cat).push(s);
+        }
+        for (const [cat, catItems] of cats) {
+          const sg = document.createElement("div");
+          sg.className = "subgroup";
+          const sgKey = `nav-collapsed:CSES:${cat}`;
+          if (localStorage.getItem(sgKey) === "1") sg.classList.add("collapsed");
+          sg.appendChild(makeGroupLabel(cat, catItems.length, sgKey, sg, "subgroup-label"));
+          catItems.forEach((s) => sg.appendChild(makeItem(s)));
+          g.appendChild(sg);
+        }
+      } else {
+        items.forEach((s) => g.appendChild(makeItem(s)));
       }
+
       el.nav.appendChild(g);
     }
     highlightActive();
@@ -154,9 +216,8 @@
     const lines = html.split("\n");
     if (lines.length && lines[lines.length - 1] === "") lines.pop();
     el.code.innerHTML = lines
-      .map(
-        (ln, i) =>
-          `<span class="code-line"><span class="ln">${i + 1}</span><span class="lc">${ln || " "}</span></span>`
+      .map((ln, i) =>
+        `<span class="code-line"><span class="ln">${i + 1}</span><span class="lc">${ln || " "}</span></span>`
       )
       .join("");
   }
@@ -168,9 +229,7 @@
     highlightActive();
     document.body.classList.remove("nav-open");
 
-    // Only show the loading screen on the first open (nothing displayed yet).
-    // On later navigation, keep the current content visible until the new
-    // content is fully ready — avoids an empty flash between problems.
+    // Keep current content visible during navigation; only show loading on first open
     const firstOpen = el.content.hidden;
     if (firstOpen) {
       el.empty.hidden = true;
@@ -190,7 +249,15 @@
 
       if (s.mdPath && mdRes && mdRes.ok) {
         el.desc.innerHTML = marked.parse(await mdRes.text());
-        renderMathInElement(el.desc, { delimiters: [{left:"$$",right:"$$",display:true},{left:"$",right:"$",display:false}], throwOnError: false });
+        // KaTeX: skip code/pre so inline code like `dp[i]` near $...$ doesn't get mangled
+        renderMathInElement(el.desc, {
+          delimiters: [
+            { left: "$$", right: "$$", display: true },
+            { left: "$", right: "$", display: false },
+          ],
+          ignoredTags: ["script", "noscript", "style", "textarea", "pre", "code", "annotation", "annotation-xml"],
+          throwOnError: false,
+        });
         el.desc.hidden = false;
       } else {
         el.desc.innerHTML = "";
@@ -204,7 +271,7 @@
       el.loading.hidden = true;
       el.content.hidden = false;
       el.content.parentElement.scrollTop = 0;
-    } catch (err) {
+    } catch (_) {
       el.loading.hidden = true;
       el.content.hidden = true;
       el.empty.hidden = false;
@@ -244,16 +311,24 @@
       setTimeout(() => (el.copyBtn.textContent = "Copy"), 1200);
     }
   });
-  el.menuToggle.addEventListener("click", () =>
-    document.body.classList.toggle("nav-open")
-  );
+  el.menuToggle.addEventListener("click", () => document.body.classList.toggle("nav-open"));
+
+  // Sidebar collapse (desktop)
+  function setSidebarCollapsed(on) {
+    document.body.classList.toggle("sidebar-collapsed", on);
+    localStorage.setItem("sidebar-collapsed", on ? "1" : "0");
+  }
+  el.sidebarToggle.addEventListener("click", () => setSidebarCollapsed(true));
+  el.sidebarExpand.addEventListener("click", () => setSidebarCollapsed(false));
+  if (localStorage.getItem("sidebar-collapsed") === "1") setSidebarCollapsed(true);
+
   window.addEventListener("hashchange", route);
 
   // ---- Boot ----
   (async () => {
     el.brandName.textContent = repo;
     try {
-      await loadIndex();
+      await Promise.all([loadIndex(), loadCsesCategories()]);
       renderNav();
       el.sideFoot.textContent = `${solutions.length} solution${solutions.length === 1 ? "" : "s"}`;
       route();
