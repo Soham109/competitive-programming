@@ -112,7 +112,9 @@ async function main() {
   const data = await res.json();
   if (!res.ok) { console.error('API error:', JSON.stringify(data)); process.exit(1); }
 
-  const readme = data.choices[0].message.content.trim();
+  let readme = data.choices[0].message.content.trim();
+  // Strip an outer ```markdown ... ``` fence the model sometimes adds.
+  readme = readme.replace(/^```(?:markdown|md)?\s*\n/, '').replace(/\n```\s*$/, '').trim();
   fs.writeFileSync(mdPath, readme + '\n');
   console.log(`Generated: ${mdPath}`);
 }
