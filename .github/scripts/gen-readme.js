@@ -123,7 +123,7 @@ async function getContext() {
 const FORMAT_RULES = `
 Produce EXACTLY these sections and nothing else:
 
-# ${basename}
+# {TITLE}
 
 > [Problem on {LABEL}]({URL})
 
@@ -144,8 +144,10 @@ HARD RULES:
 - LaTeX for EVERY variable, formula, index, modulus and complexity: $p_i$, $O(n \\log n)$, $S + 2a + 6b \\equiv 0 \\pmod 9$. Never raw math.
 - Allowed macros: \\cdot \\log \\sqrt{} \\leq \\geq \\in \\pmod{} \\equiv \\lceil \\rceil \\lfloor \\rfloor \\sum \\frac{}{}.
 - Reference real variable/function names from the code in \`backticks\` when pointing at something concrete.
+- CRITICAL — inline code spans: every backtick that opens a code span MUST be closed with a backtick. NEVER use $ to close a backtick span. WRONG: \`dp[0] = 0$. CORRECT: \`dp[0] = 0\`.
+- CRITICAL — dollar signs: $...$ is for mathematical expressions ONLY. Never put English prose, conjunctions, or plain words inside dollar signs. WRONG: $since zero coins are needed$ or $remains equal to$. CORRECT: $dp[x] = 0$.
 - Be direct and technical. No filler ("We can observe that", "It is clear", "Simply", "Note that").
-- Output ONLY the markdown starting at "# ${basename}". Do NOT wrap it in code fences.`;
+- Output ONLY the markdown starting at "# {TITLE}". Do NOT wrap it in code fences.`;
 
 const GOLD = `
 === GOLD-STANDARD EXAMPLE (explains WHY, not WHAT) ===
@@ -174,7 +176,11 @@ Generate the first primes and pair up consecutive ones. For each position $i$ th
 === END EXAMPLE ===`;
 
 function buildPrompt(ctx) {
-  const rules = FORMAT_RULES.replace(/\{LABEL\}/g, ctx.label).replace(/\{URL\}/g, ctx.url);
+  const title = (ctx.meta && ctx.meta.name) ? ctx.meta.name : basename;
+  const rules = FORMAT_RULES
+    .replace(/\{LABEL\}/g, ctx.label)
+    .replace(/\{URL\}/g, ctx.url)
+    .replace(/\{TITLE\}/g, title);
   let header;
   let problemBlock = '';
 
@@ -200,8 +206,13 @@ function cleanOutput(text) {
   let out = text.trim();
   out = out.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();   // reasoning models
   out = out.replace(/^```(?:markdown|md)?\s*\n/, '').replace(/\n```\s*$/, '').trim(); // outer fence
-  const h = out.indexOf(`# ${basename}`);
-  if (h > 0) out = out.slice(h).trim();
+  // Try exact basename first (fallback for non-CF titles), then any H1
+  const exact = out.indexOf(`# ${basename}`);
+  if (exact > 0) { out = out.slice(exact).trim(); }
+  else {
+    const h1 = out.search(/^# /m);
+    if (h1 > 0) out = out.slice(h1).trim();
+  }
   return out;
 }
 
@@ -243,7 +254,7 @@ async function main() {
   const ctx = await getContext();
   console.log(`Context for ${basename}: statement=${ctx.statement ? 'yes' : 'no'}, meta=${ctx.meta ? 'yes' : 'no'}, model=${MODEL}`);
   const readme = await callModel(buildPrompt(ctx));
-  if (!readme || !readme.startsWith(`# ${basename}`)) {
+  if (!readme || !readme.startsWith('# ')) {
     console.error(`Failed to produce a valid README for ${basename}`);
     process.exit(1);
   }

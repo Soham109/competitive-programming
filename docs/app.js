@@ -35,13 +35,26 @@
 
   let solutions = [];
   let currentCode = "";
-  // norm(name) -> CSES category string; populated at boot
-  let csesCategories = new Map();
+  let csesCategories = new Map(); // norm(name) -> CSES category
+  let cfNames = new Map();        // "2050C" -> "Greedy Partitioning"
 
   marked.setOptions({ gfm: true, breaks: false });
 
-  // Normalize to alphanumeric-only for fuzzy name matching
   const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  // CoinCombinationsI -> Coin Combinations I
+  function splitWords(s) {
+    return s
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
+  }
+
+  // Human-readable label for a solution's id
+  function displayId(s) {
+    if (s.platform === "codeforces") return cfNames.get(s.id) || s.id;
+    if (s.platform === "cses") return splitWords(s.id);
+    return s.id;
+  }
 
   function platformLabel(folder) {
     return CFG.platforms[folder.toLowerCase()] ||
@@ -59,6 +72,12 @@
     return dot === -1 ? "" : f.slice(dot + 1).toLowerCase();
   }
 
+  // ---- Fix model-generated bad markdown: `code$ -> `code` ----
+  // Catches the common case where the model closes a code span with $ instead of `.
+  function sanitizeMath(md) {
+    return md.replace(/`([^`\n]{1,80}?)\$(?=[\s,.):]|$)/gm, (_, inner) => `\`${inner}\``);
+  }
+
   // ---- Load CSES category map ----
   async function loadCsesCategories() {
     try {
@@ -67,7 +86,6 @@
       });
       if (!res.ok) return;
       const html = await res.text();
-      // Interleave <h2>Category</h2> markers and <li class="task"> links by position
       const tokens = [];
       const h2Re = /<h2>([^<]+)<\/h2>/g;
       const taskRe = /class="task"><a href="[^"]*\/task\/\d+"[^>]*>([^<]+)<\/a>/g;
@@ -79,6 +97,21 @@
       for (const t of tokens) {
         if (t.type === "cat") cur = t.name;
         else csesCategories.set(norm(t.name), cur);
+      }
+    } catch (_) {}
+  }
+
+  // ---- Load Codeforces problem names ----
+  async function loadCfNames() {
+    try {
+      const res = await fetch("https://codeforces.com/api/problemset.problems", {
+        signal: AbortSignal.timeout(20000),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.status !== "OK") return;
+      for (const p of data.result.problems) {
+        cfNames.set(`${p.contestId}${p.index}`, p.name);
       }
     } catch (_) {}
   }
@@ -106,6 +139,8 @@
 
       const dir = parts.slice(0, -1).join("/");
       const base = basename(path);
+      if (base.toLowerCase() === "template") continue;
+
       const sibling = `${dir}/${base}.md`;
       const readme = `${dir}/README.md`;
       let mdPath = null;
@@ -128,7 +163,7 @@
   function makeItem(s) {
     const a = document.createElement("a");
     a.className = "item";
-    a.textContent = s.id;
+    a.textContent = displayId(s);
     a.href = `#${encodeURIComponent(s.key)}`;
     a.dataset.key = s.key;
     return a;
@@ -148,10 +183,12 @@
   function renderNav(filterText = "") {
     const q = filterText.trim().toLowerCase();
 
-    // Group by platform
     const platforms = new Map();
     for (const s of solutions) {
-      if (q && !(`${s.platformLabel} ${s.id}`.toLowerCase().includes(q))) continue;
+      if (q) {
+        const did = displayId(s).toLowerCase();
+        if (!(`${s.platformLabel} ${s.id} ${did}`.toLowerCase().includes(q))) continue;
+      }
       if (!platforms.has(s.platformLabel)) platforms.set(s.platformLabel, []);
       platforms.get(s.platformLabel).push(s);
     }
@@ -170,7 +207,6 @@
 
       g.appendChild(makeGroupLabel(label, items.length, gKey, g));
 
-      // CSES: nest by category when categories are loaded and not filtering
       if (label === "CSES" && csesCategories.size > 0 && !q) {
         const cats = new Map();
         for (const s of items) {
@@ -229,7 +265,6 @@
     highlightActive();
     document.body.classList.remove("nav-open");
 
-    // Keep current content visible during navigation; only show loading on first open
     const firstOpen = el.content.hidden;
     if (firstOpen) {
       el.empty.hidden = true;
@@ -244,12 +279,12 @@
       currentCode = codeText;
 
       el.cPlatform.textContent = s.platformLabel;
-      el.cId.textContent = s.id;
+      el.cId.textContent = displayId(s);
       el.cSource.href = `https://github.com/${owner}/${repo}/blob/${branch}/${s.codePath}`;
 
       if (s.mdPath && mdRes && mdRes.ok) {
-        el.desc.innerHTML = marked.parse(await mdRes.text());
-        // KaTeX: skip code/pre so inline code like `dp[i]` near $...$ doesn't get mangled
+        const rawMd = sanitizeMath(await mdRes.text());
+        el.desc.innerHTML = marked.parse(rawMd);
         renderMathInElement(el.desc, {
           delimiters: [
             { left: "$$", right: "$$", display: true },
@@ -265,7 +300,7 @@
       }
       el.fileName.textContent = s.codePath.split("/").pop();
       renderCode(codeText, extLang[ext(s.codePath)]);
-      document.title = `${s.id} · ${s.platformLabel}`;
+      document.title = `${displayId(s)} · ${s.platformLabel}`;
 
       el.empty.hidden = true;
       el.loading.hidden = true;
@@ -328,7 +363,7 @@
   (async () => {
     el.brandName.textContent = repo;
     try {
-      await Promise.all([loadIndex(), loadCsesCategories()]);
+      await Promise.all([loadIndex(), loadCsesCategories(), loadCfNames()]);
       renderNav();
       el.sideFoot.textContent = `${solutions.length} solution${solutions.length === 1 ? "" : "s"}`;
       route();

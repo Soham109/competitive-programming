@@ -8,7 +8,7 @@ The key insight is that the number of ways to form a sum $x$ using the first $i$
 
 ## Approach
 
-1. Define a dynamic programming array `d` where `d[j]` represents the number of ways to form sum $j$ using the first $i$ coins. Initialize `d[0] = 1$ since there is exactly one way to form sum $0$: using no coins.
+1. Define a dynamic programming array `d` where `d[j]` represents the number of ways to form sum $j$ using the first $i$ coins. Initialize `d[0] = 1` since there is exactly one way to form sum $0$: using no coins.
 2. Iterate through each coin $c_i$. For every possible sum $j \geq c_i$, update `d[j]` as `d[j] = d[j] + d[j - c_i]`. This accounts for all ways to form $j$ by adding $c_i$ to combinations that form $j - c_i$.
 3. After processing all coins, `d[x]` contains the total number of ways to form the target sum $x$ modulo $10^9 + 7$.
 

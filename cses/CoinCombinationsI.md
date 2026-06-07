@@ -8,7 +8,7 @@ The key insight is that the number of ways to form a sum $x$ using the given coi
 
 ## Approach
 
-1. Define a dynamic programming array `dp` where `dp[i]` represents the number of ways to form the sum $i$ using the given coins. Initialize `dp[0] = 1$ because there is exactly one way to form a sum of $0$: using no coins.
+1. Define a dynamic programming array `dp` where `dp[i]` represents the number of ways to form the sum $i$ using the given coins. Initialize `dp[0] = 1` because there is exactly one way to form a sum of $0$: using no coins.
 
 2. Iterate over all possible sums $i$ from $1$ to $x$. For each sum, iterate over all coin values $c_j$ in the input.
 

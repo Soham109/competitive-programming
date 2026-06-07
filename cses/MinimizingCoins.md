@@ -8,11 +8,11 @@ The key insight is that the problem can be reduced to finding the smallest numbe
 
 ## Approach
 
-1. Define a dynamic programming array `dp` where `dp[i]` represents the minimum number of coins required to form the sum $i$. Initialize `dp[0] = 0$ since zero coins are needed to form a sum of $0$, and set all other values to a large number (e.g., $10^9$) to represent that those sums are initially unreachable.
+1. Define a dynamic programming array `dp` where `dp[i]` represents the minimum number of coins required to form the sum $i$. Initialize `dp[0] = 0` since zero coins are needed to form a sum of $0$, and set all other values to a large number (e.g., $10^9$) to represent that those sums are initially unreachable.
 
 2. Iterate over all possible sums $i$ from $1$ to $x$. For each sum $i$, iterate over all coin values $c_j$. If $c_j \leq i$, update `dp[i]` as $\min(dp[i], dp[i - c_j] + 1)$ because adding one coin of value $c_j$ to the optimal solution for $i - c_j$ gives a valid solution for $i$.
 
-3. After processing all sums, the value of `dp[x]` represents the minimum number of coins required to form the sum $x$. If `dp[x]$ remains equal to the initial large value, output $-1$ to indicate that the sum $x$ cannot be formed.
+3. After processing all sums, the value of `dp[x]` represents the minimum number of coins required to form the sum $x$. If `dp[x]` remains equal to the initial large value, output $-1$ to indicate that the sum $x$ cannot be formed.
 
 ## Complexity
 
