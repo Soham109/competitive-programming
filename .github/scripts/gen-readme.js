@@ -29,22 +29,20 @@ if (platform === 'codeforces') {
   problemUrl = '';
 }
 
-const prompt = `You are writing a README for a competitive programming solution. Study this example carefully — yours must match its quality and style exactly.
+const prompt = `You are writing a README for a competitive programming solution. Match this example exactly in style, tone, and formatting.
 
-=== EXAMPLE README (2218D) ===
+=== EXAMPLE ===
 # 2218D
 
 > [Problem on Codeforces](https://codeforces.com/problemset/problem/2218/D)
 
 ## Idea
 
-Generate the first primes and pair up consecutive ones. For each position $i$
-the answer uses the product $p_i \\cdot p_{i+1}$, which guarantees the required
-pairwise property while keeping every value distinct.
+Generate the first primes and pair up consecutive ones. For each position $i$ the answer uses the product $p_i \\cdot p_{i+1}$, which guarantees the required pairwise property while keeping every value distinct.
 
 ## Approach
 
-1. Build a list of primes with a simple trial-division check.
+1. Build a list of primes with trial division.
 2. Collect $n + 1$ primes so every index $i$ has a valid $p_{i+1}$.
 3. Output $p_i \\cdot p_{i+1}$ for $i \\in [0, n)$, using \`long long\` to avoid overflow.
 
@@ -58,43 +56,33 @@ pairwise property while keeping every value distinct.
 - Multiply with \`1LL\` before the second operand to stay in 64-bit range.
 === END EXAMPLE ===
 
-Now write a README for this problem.
-
-Platform: ${platformLabel}
-Problem: ${basename}
+Problem: ${basename} on ${platformLabel}
 URL: ${problemUrl}
 
 \`\`\`cpp
 ${code}
 \`\`\`
 
-STRICT FORMATTING RULES — follow every one:
-
-1. **Title line:** \`# ${basename}\` — nothing else on that line.
-2. **Problem link:** \`> [Problem on ${platformLabel}](${problemUrl})\` — second line, exactly this format.
-3. **## Idea** — 1–3 sentences. State the key mathematical or algorithmic insight. Not "we do X" but WHY X works. Use LaTeX for any math: inline as \`$...$\`, display as \`$$...$$\`.
-4. **## Approach** — numbered steps. Each step is one short sentence. Reference variable names from the code. Use LaTeX for formulas, indices, bounds. No bullet points — only numbered list.
-5. **## Complexity** — bullet list with **Time:** and **Space:** in bold. Always use $O(...)$ notation in LaTeX. Give a one-clause justification after each.
-6. **## Notes** — ONLY include if there is a non-obvious implementation detail (e.g. overflow cast, modular inverse trick, 1-indexed vs 0-indexed subtlety). If nothing is surprising, OMIT this section entirely.
-7. **LaTeX rules:**
-   - Every variable, formula, bound, and index must be in LaTeX — never write raw "O(n log n)" or "p_i", always \`$O(n \\log n)$\` and \`$p_i$\`.
-   - Use \`\\cdot\` for multiplication, \`\\log\`, \`\\sqrt{}\`, \`\\leq\`, \`\\geq\`, \`\\in\`, \`\\infty\` etc.
-   - Subscripts: \`$a_i$\`, superscripts: \`$n^2$\`.
-   - For sums/products: \`$\\sum_{i=0}^{n} a_i$\`.
-8. **No filler.** Never write "We can observe that", "It is clear that", "Note that", "Simply", "Just". Be direct.
-9. **Code references** in backticks when mentioning exact variable/function names from the code.
-10. Output ONLY the markdown — no preamble, no explanation, nothing before \`# ${basename}\`.`;
+RULES:
+1. Title: \`# ${basename}\` only.
+2. Second line: \`> [Problem on ${platformLabel}](${problemUrl})\`
+3. ## Idea — 1-3 sentences. Core insight. Why it works. LaTeX for all math.
+4. ## Approach — numbered steps, one sentence each. Reference exact variable/function names. LaTeX for formulas/indices/bounds.
+5. ## Complexity — bullet list. Bold **Time:** and **Space:**. Always $O(...)$ in LaTeX with justification.
+6. ## Notes — ONLY if there is a non-obvious implementation detail. Omit entirely if nothing surprising.
+7. LaTeX: every variable, formula, index in $...$. Use \\cdot, \\log, \\sqrt{}, \\leq, \\geq, \\in, \\pmod{}.
+8. No filler words. No "We observe", "Note that", "Simply". Be direct.
+9. Output ONLY the markdown starting with # ${basename}.`;
 
 async function main() {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await fetch('https://models.inference.ai.azure.com/chat/completions', {
     method: 'POST',
     headers: {
-      'x-api-key': process.env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
+      'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
+      model: 'gpt-4o-mini',
       max_tokens: 1024,
       messages: [{ role: 'user', content: prompt }],
     }),
@@ -103,7 +91,7 @@ async function main() {
   const data = await res.json();
   if (!res.ok) { console.error('API error:', JSON.stringify(data)); process.exit(1); }
 
-  const readme = data.content[0].text.trim();
+  const readme = data.choices[0].message.content.trim();
   fs.writeFileSync(mdPath, readme + '\n');
   console.log(`Generated: ${mdPath}`);
 }
