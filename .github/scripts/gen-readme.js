@@ -1,5 +1,11 @@
 const fs = require('fs');
 
+// ---------------------------------------------------------------------------
+// Config
+// ---------------------------------------------------------------------------
+const MODEL = process.env.MODEL || 'gpt-4o'; // override via MODEL env (e.g. o1, DeepSeek-R1-0528)
+const MODELS_ENDPOINT = 'https://models.inference.ai.azure.com/chat/completions';
+
 const filePath = process.argv[2];
 if (!filePath) { console.error('Usage: node gen-readme.js <path>'); process.exit(1); }
 
@@ -14,26 +20,132 @@ if (fs.existsSync(mdPath)) { console.log(`README exists: ${mdPath}`); process.ex
 
 const code = fs.readFileSync(filePath, 'utf8').trim();
 
-let platformLabel, problemUrl;
-if (platform === 'codeforces') {
-  platformLabel = 'Codeforces';
-  const m = basename.match(/^(\d+)([A-Z]\d?)$/i);
-  problemUrl = m
-    ? `https://codeforces.com/problemset/problem/${m[1]}/${m[2].toUpperCase()}`
-    : `https://codeforces.com/problemset`;
-} else if (platform === 'cses') {
-  platformLabel = 'CSES';
-  problemUrl = `https://cses.fi/problemset/`;
-} else {
-  platformLabel = platform.charAt(0).toUpperCase() + platform.slice(1);
-  problemUrl = '';
+// ---------------------------------------------------------------------------
+// Small fetch helpers (timeout + retry, never throw to caller)
+// ---------------------------------------------------------------------------
+async function fetchWithTimeout(url, opts = {}, ms = 25000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try { return await fetch(url, { ...opts, signal: ctrl.signal }); }
+  finally { clearTimeout(t); }
 }
 
-const prompt = `You are a strong competitive programmer writing an editorial-quality README for a solution. You are given ONLY the source code — not the problem statement. Your job is to REVERSE-ENGINEER what the problem is asking and, more importantly, explain the INSIGHT that makes the solution work and HOW someone would arrive at it.
+async function safeGet(url, opts = {}, ms = 25000, tries = 2) {
+  for (let i = 0; i < tries; i++) {
+    try {
+      const res = await fetchWithTimeout(url, opts, ms);
+      if (res.ok) return res;
+    } catch (_) { /* retry */ }
+    await new Promise(r => setTimeout(r, 1500 * (i + 1)));
+  }
+  return null;
+}
 
-Study this gold-standard example. Notice it explains WHY, not WHAT:
+// Read any page as clean markdown via the free Jina Reader proxy.
+async function jinaRead(targetUrl) {
+  const res = await safeGet('https://r.jina.ai/' + targetUrl, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; readme-bot)' },
+  }, 30000, 3);
+  if (!res) return null;
+  const text = await res.text();
+  if (!text || text.length < 80) return null;
+  // Trim the proxy's header lines and cap length to control tokens.
+  let body = text
+    .replace(/^Title:.*$/m, '')
+    .replace(/^URL Source:.*$/m, '')
+    .replace(/^Markdown Content:\s*/m, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  if (body.length > 7000) body = body.slice(0, 7000) + '\n...[statement truncated]';
+  return body;
+}
 
-=== GOLD EXAMPLE ===
+// ---------------------------------------------------------------------------
+// Per-platform problem context
+// ---------------------------------------------------------------------------
+async function codeforcesContext() {
+  const m = basename.match(/^(\d+)([A-Z]\d?)$/i);
+  if (!m) {
+    return { label: 'Codeforces', url: 'https://codeforces.com/problemset', statement: null, meta: null };
+  }
+  const contest = m[1], index = m[2].toUpperCase();
+  const url = `https://codeforces.com/problemset/problem/${contest}/${index}`;
+
+  // Metadata from the official API (name, rating, tags) — not Cloudflare-blocked.
+  let meta = null;
+  const api = await safeGet('https://codeforces.com/api/problemset.problems',
+    { headers: { 'User-Agent': 'Mozilla/5.0' } }, 30000, 2);
+  if (api) {
+    try {
+      const data = await api.json();
+      const p = data.result.problems.find(x => String(x.contestId) === contest && x.index === index);
+      if (p) meta = { name: p.name, rating: p.rating, tags: p.tags };
+    } catch (_) {}
+  }
+
+  const statement = await jinaRead(url);
+  return { label: 'Codeforces', url, statement, meta };
+}
+
+async function csesContext() {
+  // Files are named by problem title; resolve title -> task id from the index.
+  let id = null;
+  const idx = await safeGet('https://cses.fi/problemset/', { headers: { 'User-Agent': 'Mozilla/5.0' } }, 20000, 2);
+  if (idx) {
+    const html = await idx.text();
+    const re = /href="\/problemset\/task\/(\d+)"[^>]*>([^<]+)</g;
+    const target = basename.trim().toLowerCase();
+    let m;
+    while ((m = re.exec(html))) {
+      if (m[2].trim().toLowerCase() === target) { id = m[1]; break; }
+    }
+  }
+  const url = id ? `https://cses.fi/problemset/task/${id}` : 'https://cses.fi/problemset/';
+  const statement = id ? await jinaRead(url) : null;
+  return { label: 'CSES', url, statement, meta: null };
+}
+
+async function getContext() {
+  try {
+    if (platform === 'codeforces') return await codeforcesContext();
+    if (platform === 'cses') return await csesContext();
+  } catch (_) {}
+  const label = platform.charAt(0).toUpperCase() + platform.slice(1);
+  return { label, url: '', statement: null, meta: null };
+}
+
+// ---------------------------------------------------------------------------
+// Prompt
+// ---------------------------------------------------------------------------
+const FORMAT_RULES = `
+Produce EXACTLY these sections and nothing else:
+
+# ${basename}
+
+> [Problem on {LABEL}]({URL})
+
+## Idea
+2-5 sentences. State the SINGLE key observation that cracks the problem and WHY it is true (the "aha"): an invariant, a divisibility fact, a greedy exchange argument, a reformulation, etc. Name any non-obvious math fact explicitly. Do NOT describe code structure here.
+
+## Approach
+A derivation, not a code walkthrough. Lead the reader from the observation to the algorithm: what quantity is tracked, what choices exist, why the method is correct and sufficient. Numbered list of 3-6 GENUINE reasoning steps. Every step must carry justification ("because...", "this guarantees...", "it suffices to..."). BANNED narration: "read the input", "initialize a variable", "loop over the array", "call the function", "print the answer".
+
+## Complexity
+- **Time:** $O(\\cdot)$ — one clause tied to the real bottleneck.
+- **Space:** $O(\\cdot)$ — one clause.
+
+## Notes
+ONLY if there is a genuine non-obvious implementation detail (overflow cast, why a small bound suffices, indexing trap, modular trick). Omit the whole section otherwise.
+
+HARD RULES:
+- LaTeX for EVERY variable, formula, index, modulus and complexity: $p_i$, $O(n \\log n)$, $S + 2a + 6b \\equiv 0 \\pmod 9$. Never raw math.
+- Allowed macros: \\cdot \\log \\sqrt{} \\leq \\geq \\in \\pmod{} \\equiv \\lceil \\rceil \\lfloor \\rfloor \\sum \\frac{}{}.
+- Reference real variable/function names from the code in \`backticks\` when pointing at something concrete.
+- Be direct and technical. No filler ("We can observe that", "It is clear", "Simply", "Note that").
+- Output ONLY the markdown starting at "# ${basename}". Do NOT wrap it in code fences.`;
+
+const GOLD = `
+=== GOLD-STANDARD EXAMPLE (explains WHY, not WHAT) ===
 # 2218D
 
 > [Problem on Codeforces](https://codeforces.com/problemset/problem/2218/D)
@@ -56,65 +168,82 @@ Generate the first primes and pair up consecutive ones. For each position $i$ th
 ## Notes
 
 - Multiply with \`1LL\` before the second operand to stay in 64-bit range.
-=== END EXAMPLE ===
+=== END EXAMPLE ===`;
 
-Now write the README for this solution.
+function buildPrompt(ctx) {
+  const rules = FORMAT_RULES.replace(/\{LABEL\}/g, ctx.label).replace(/\{URL\}/g, ctx.url);
+  let header;
+  let problemBlock = '';
 
-Problem: ${basename} on ${platformLabel}
-URL: ${problemUrl}
+  if (ctx.statement) {
+    header = `You are a strong competitive programmer writing an editorial-quality README. You are given the ACTUAL problem statement and the accepted solution. Ground every claim in the statement; explain the real insight and how one arrives at it.`;
+    problemBlock = `\n=== PROBLEM STATEMENT (${ctx.label} ${basename}) ===\n${ctx.statement}\n=== END STATEMENT ===\n`;
+  } else {
+    header = `You are a strong competitive programmer writing an editorial-quality README. The full statement could not be fetched, so REVERSE-ENGINEER what the problem asks from the code and metadata, then explain the insight and how one arrives at it.`;
+  }
+  if (ctx.meta) {
+    problemBlock += `\nProblem metadata — name: "${ctx.meta.name}"` +
+      (ctx.meta.rating ? `, rating: ${ctx.meta.rating}` : '') +
+      (ctx.meta.tags && ctx.meta.tags.length ? `, tags: [${ctx.meta.tags.join(', ')}]` : '') + `\n`;
+  }
 
-\`\`\`cpp
-${code}
-\`\`\`
+  return `${header}\n${GOLD}\n${problemBlock}\n=== ACCEPTED SOLUTION CODE ===\n\`\`\`cpp\n${code}\n\`\`\`\n${rules}`;
+}
 
-Produce EXACTLY these sections:
+// ---------------------------------------------------------------------------
+// Model call (retry on rate limit / transient error)
+// ---------------------------------------------------------------------------
+function cleanOutput(text) {
+  let out = text.trim();
+  out = out.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();   // reasoning models
+  out = out.replace(/^```(?:markdown|md)?\s*\n/, '').replace(/\n```\s*$/, '').trim(); // outer fence
+  const h = out.indexOf(`# ${basename}`);
+  if (h > 0) out = out.slice(h).trim();
+  return out;
+}
 
-# ${basename}
+async function callModel(prompt) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let res;
+    try {
+      res = await fetchWithTimeout(MODELS_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: MODEL,
+          max_tokens: 1500,
+          temperature: 0.4,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      }, 60000);
+    } catch (e) {
+      console.error(`attempt ${attempt}: network error`, e.message);
+      await new Promise(r => setTimeout(r, 3000 * (attempt + 1)));
+      continue;
+    }
+    if (res.status === 429 || res.status >= 500) {
+      console.error(`attempt ${attempt}: HTTP ${res.status}, backing off`);
+      await new Promise(r => setTimeout(r, 5000 * (attempt + 1)));
+      continue;
+    }
+    const data = await res.json();
+    if (!res.ok || !data.choices) { console.error('API error:', JSON.stringify(data)); return null; }
+    return cleanOutput(data.choices[0].message.content);
+  }
+  return null;
+}
 
-> [Problem on ${platformLabel}](${problemUrl})
-
-## Idea
-2-5 sentences. State the SINGLE key observation that cracks the problem, and WHY it is true. This is the "aha" — e.g. a divisibility property, an invariant, a greedy exchange argument, a reformulation. If the code uses a non-obvious math fact (e.g. "a number is divisible by 9 iff its digit sum is"), name it explicitly and explain how it connects to the operations in the problem. Do NOT describe code structure here.
-
-## Approach
-A short derivation, not a code walkthrough. Walk the reader from the observation to the algorithm: what quantity are we tracking, what choices exist, why the search/greedy/formula is correct and sufficient. Use a numbered list ONLY for the genuine algorithmic steps (the reasoning), 3-6 items. BANNED phrases that just narrate code: "read the input", "initialize a variable", "loop over the string", "call the function", "output YES/NO". Every step must carry reasoning ("because...", "this guarantees...", "it suffices to...").
-
-## Complexity
-- **Time:** $O(\\cdot)$ with a one-clause reason tied to the actual bottleneck.
-- **Space:** $O(\\cdot)$ with a one-clause reason.
-
-## Notes
-ONLY include if there is a genuine non-obvious implementation detail (overflow cast, why a bound like $\\le 9$ suffices, 0/1-indexing trap, modular trick). Omit the whole section otherwise.
-
-HARD RULES:
-- LaTeX for EVERY variable, formula, index, modulus and complexity: $p_i$, $O(n \\log n)$, $S + 2a + 6b \\equiv 0 \\pmod 9$. Never write raw math.
-- Use \`\\cdot, \\log, \\sqrt{}, \\leq, \\geq, \\in, \\pmod{}, \\equiv$\`.
-- Reference actual variable/function names from the code in \`backticks\` when pointing to a concrete piece.
-- Be direct and technical. No filler ("We can observe that", "It is clear", "Simply", "Note that").
-- Explain the MATH/ALGORITHM, never just what each line does.
-- Output ONLY the markdown, starting at \`# ${basename}\`.`;
-
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
 async function main() {
-  const res = await fetch('https://models.inference.ai.azure.com/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      max_tokens: 1400,
-      temperature: 0.4,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  });
-
-  const data = await res.json();
-  if (!res.ok) { console.error('API error:', JSON.stringify(data)); process.exit(1); }
-
-  let readme = data.choices[0].message.content.trim();
-  // Strip an outer ```markdown ... ``` fence the model sometimes adds.
-  readme = readme.replace(/^```(?:markdown|md)?\s*\n/, '').replace(/\n```\s*$/, '').trim();
+  const ctx = await getContext();
+  console.log(`Context for ${basename}: statement=${ctx.statement ? 'yes' : 'no'}, meta=${ctx.meta ? 'yes' : 'no'}, model=${MODEL}`);
+  const readme = await callModel(buildPrompt(ctx));
+  if (!readme || !readme.startsWith(`# ${basename}`)) {
+    console.error(`Failed to produce a valid README for ${basename}`);
+    process.exit(1);
+  }
   fs.writeFileSync(mdPath, readme + '\n');
   console.log(`Generated: ${mdPath}`);
 }
