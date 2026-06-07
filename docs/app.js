@@ -165,11 +165,17 @@
     const s = solutions.find((x) => x.key === key);
     if (!s) { showEmpty(); return; }
 
-    el.empty.hidden = true;
-    el.content.hidden = true;
-    el.loading.hidden = false;
     highlightActive();
     document.body.classList.remove("nav-open");
+
+    // Only show the loading screen on the first open (nothing displayed yet).
+    // On later navigation, keep the current content visible until the new
+    // content is fully ready — avoids an empty flash between problems.
+    const firstOpen = el.content.hidden;
+    if (firstOpen) {
+      el.empty.hidden = true;
+      el.loading.hidden = false;
+    }
 
     try {
       const reqs = [fetch(RAW(s.codePath))];
@@ -194,11 +200,13 @@
       renderCode(codeText, extLang[ext(s.codePath)]);
       document.title = `${s.id} · ${s.platformLabel}`;
 
+      el.empty.hidden = true;
       el.loading.hidden = true;
       el.content.hidden = false;
       el.content.parentElement.scrollTop = 0;
     } catch (err) {
       el.loading.hidden = true;
+      el.content.hidden = true;
       el.empty.hidden = false;
     }
   }
