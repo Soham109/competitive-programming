@@ -34,25 +34,25 @@
 
   let solutions = [];
   let currentCode = "";
-  let cfNames = {}; // contestId+index (upper) -> problem name
+  let cfNames = {};
 
-  // CSES maps loaded from cses-categories.js (pre-built by workflow)
   const csesCategories = window.CSES_CATEGORIES || {};
   const csesNames = window.CSES_NAMES || {};
 
   marked.setOptions({ gfm: true, breaks: false });
 
   const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
-
   const sanitizeMd = globalThis.sanitizeReadmeMd || ((md) => md);
+  const protectMath = globalThis.protectMathBlocks || ((md) => ({ text: md, blocks: [] }));
+  const restoreMath = globalThis.restoreMathBlocks || ((html) => html);
 
-  // CoinCombinationsI -> Coin Combinations I (fallback when CSES_NAMES has no entry)
   function splitWords(s) {
     return s
       .replace(/([a-z])([A-Z])/g, "$1 $2")
       .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
   }
 
+  // Single source of truth for display names everywhere (nav, title, H1 rewrite).
   function solutionTitle(s) {
     if (s.platform === "codeforces") return cfNames[s.id.toUpperCase()] || s.id;
     if (s.platform === "cses") return csesNames[norm(s.id)] || splitWords(s.id);
@@ -60,15 +60,22 @@
   }
 
   function contentHeading(s) {
+    const title = solutionTitle(s);
     if (s.platform === "codeforces" && cfNames[s.id.toUpperCase()]) {
-      return `${s.id} — ${cfNames[s.id.toUpperCase()]}`;
+      return `${s.id} — ${title}`;
     }
-    return solutionTitle(s);
+    return title;
   }
 
   function rewriteMdHeading(md, title) {
     if (!/^# /m.test(md)) return md;
     return md.replace(/^# .+\r?\n/m, `# ${title}\r\n`);
+  }
+
+  function parseMarkdown(md) {
+    const cleaned = sanitizeMd(md);
+    const { text, blocks } = protectMath(cleaned);
+    return restoreMath(marked.parse(text), blocks);
   }
 
   function platformLabel(folder) {
@@ -87,10 +94,9 @@
     return dot === -1 ? "" : f.slice(dot + 1).toLowerCase();
   }
 
-  // ---- CF problem names (fetched from CF API, cached 24h) ----
   async function loadCFNames() {
     const CACHE_KEY = "cf-problem-names-v1";
-    const CACHE_TTL = 86400000; // 24h
+    const CACHE_TTL = 86400000;
     try {
       const cached = localStorage.getItem(CACHE_KEY);
       if (cached) {
@@ -114,7 +120,6 @@
     }
   }
 
-  // ---- Build the index from one recursive tree call ----
   async function loadIndex() {
     const url = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
     const res = await fetch(url);
@@ -157,30 +162,12 @@
     solutions = out;
   }
 
-  // ---- Sidebar items ----
   function makeItem(s) {
     const a = document.createElement("a");
     a.className = "item";
     a.href = `#${encodeURIComponent(s.key)}`;
     a.dataset.key = s.key;
-
-    if (s.platform === "codeforces") {
-      const name = cfNames[s.id.toUpperCase()];
-      if (name) {
-        a.classList.add("item--rich");
-        a.innerHTML =
-          `<span class="item-name">${name}</span>` +
-          `<span class="item-id">${s.id}</span>`;
-      } else {
-        a.textContent = s.id;
-      }
-    } else if (s.platform === "cses") {
-      const name = csesNames[norm(s.id)];
-      a.textContent = name || s.id;
-    } else {
-      a.textContent = s.id;
-    }
-
+    a.textContent = solutionTitle(s);
     return a;
   }
 
@@ -204,8 +191,8 @@
 
     const platforms = new Map();
     for (const s of solutions) {
-      const displayId = solutionTitle(s);
-      if (q && !(`${s.platformLabel} ${s.id} ${displayId}`.toLowerCase().includes(q))) continue;
+      const title = solutionTitle(s);
+      if (q && !(`${s.platformLabel} ${s.id} ${title}`.toLowerCase().includes(q))) continue;
       if (!platforms.has(s.platformLabel)) platforms.set(s.platformLabel, []);
       platforms.get(s.platformLabel).push(s);
     }
@@ -259,7 +246,6 @@
     );
   }
 
-  // ---- Render code ----
   function renderCode(text, language) {
     let html;
     try {
@@ -300,12 +286,11 @@
 
       el.cPlatform.textContent = s.platformLabel;
       el.cId.textContent = contentHeading(s);
-
       el.cSource.href = `https://github.com/${owner}/${repo}/blob/${branch}/${s.codePath}`;
 
       if (s.mdPath && mdRes && mdRes.ok) {
         const rawMd = rewriteMdHeading(await mdRes.text(), solutionTitle(s));
-        el.desc.innerHTML = marked.parse(sanitizeMd(rawMd));
+        el.desc.innerHTML = parseMarkdown(rawMd);
         renderMathInElement(el.desc, {
           delimiters: [
             { left: "$$", right: "$$", display: true },
@@ -340,7 +325,6 @@
     el.empty.hidden = false;
   }
 
-  // ---- Routing ----
   function route() {
     const key = decodeURIComponent(location.hash.slice(1));
     if (key && solutions.find((x) => x.key === key)) {
@@ -355,7 +339,6 @@
     }
   }
 
-  // ---- Sidebar collapse ----
   function setSidebarCollapsed(on) {
     document.body.classList.toggle("sidebar-collapsed", on);
     el.sidebarToggle.textContent = on ? "›" : "‹";
@@ -366,7 +349,6 @@
   );
   if (localStorage.getItem("sidebar-collapsed") === "1") setSidebarCollapsed(true);
 
-  // ---- Events ----
   el.filter.addEventListener("input", (e) => renderNav(e.target.value));
   el.copyBtn.addEventListener("click", async () => {
     try {
@@ -381,7 +363,6 @@
   el.menuToggle.addEventListener("click", () => document.body.classList.toggle("nav-open"));
   window.addEventListener("hashchange", route);
 
-  // ---- Boot ----
   (async () => {
     el.brandName.textContent = repo;
     try {

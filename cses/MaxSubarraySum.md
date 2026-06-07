@@ -8,8 +8,8 @@ The key observation is that the maximum subarray sum ending at position $i$ can 
 ## Approach
 1. Define `sum` as the maximum subarray sum ending at the current position and `best` as the global maximum subarray sum found so far.
 2. Initialize `sum` and `best` with the first element of the array, as the smallest subarray is a single element.
-3. Iterate through the array from the second element. At each position $i$, update `sum` as $\max(a[i], \texttt{sum} + a[i])$, which either starts a new subarray at $i$ or extends the previous subarray to include $a[i]$.
-4. Update `best` as $\max(\texttt{best}, \texttt{sum})$ to track the global maximum subarray sum.
+3. Iterate through the array from the second element. At each position $i$, update `sum` as $\max(a[i], sum + a[i])$, which either starts a new subarray at $i$ or extends the previous subarray to include $a[i]$.
+4. Update `best` as $\max(best, sum)$ to track the global maximum subarray sum.
 5. After processing all elements, `best` contains the maximum subarray sum.
 
 ## Complexity

@@ -170,6 +170,7 @@ LATEX CRITICAL RULES — violations cause visible rendering bugs in the browser:
   BAD:  $n$\`arr\`                            GOOD: $n$ elements in \`arr\`
 - Pick ONE style per concept in each sentence: either $dp[i]$ (LaTeX) or \`dp[i]\` (code span). Never both for the same thing in the same clause.
 - NEVER put LaTeX commands inside backticks. WRONG: \`\\pmod{10^9+7}\` or \`dp[i - c_j] \\pmod{10^9 + 7}\`. CORRECT: $\\pmod{10^9+7}$ or $dp[i - c_j] \\pmod{10^9 + 7}$.
+- NEVER use \\\\text{} or \\\\texttt{} for code variable names. WRONG: $a \\geq \\text{last\\_end}$ or $\\texttt{sum}$. CORRECT: $a \\geq$ \`last_end\` or \`sum\`.
 - Sanity check before outputting: delete all $...$. The remaining prose must be grammatically correct English.`;
 
 const GOLD = `
