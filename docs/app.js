@@ -28,31 +28,34 @@
     brandName: document.getElementById("brand-name"),
     menuToggle: document.getElementById("menu-toggle"),
     sidebarToggle: document.getElementById("sidebar-toggle"),
-    sidebarExpand: document.getElementById("sidebar-expand"),
   };
 
   el.repoLink.href = `https://github.com/${owner}/${repo}`;
 
   let solutions = [];
   let currentCode = "";
-  let csesCategories = new Map(); // norm(name) -> CSES category
-  let cfNames = new Map();        // "2050C" -> "Greedy Partitioning"
+  let cfNames = {}; // contestId+index (upper) -> problem name
+
+  // CSES maps loaded from cses-categories.js (pre-built by workflow)
+  const csesCategories = window.CSES_CATEGORIES || {};
+  const csesNames = window.CSES_NAMES || {};
 
   marked.setOptions({ gfm: true, breaks: false });
 
   const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 
-  // CoinCombinationsI -> Coin Combinations I
-  function splitWords(s) {
-    return s
-      .replace(/([a-z])([A-Z])/g, "$1 $2")
-      .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
+  // Pre-process markdown to fix common model mistakes that break KaTeX
+  function sanitizeMd(md) {
+    return md
+      .replace(/(`+)\$/g, "$1 $")   // closing backtick then $ → add space
+      .replace(/\$(`+)/g, "$ $1")   // $ then opening backtick → add space
+      // model closes a code span with $ instead of `
+      .replace(/`([^`\n]{1,80}?)\$(?=[\s,.):]|$)/gm, (_, inner) => `\`${inner}\``);
   }
 
-  // Human-readable label for a solution's id
-  function displayId(s) {
-    if (s.platform === "codeforces") return cfNames.get(s.id) || s.id;
-    if (s.platform === "cses") return splitWords(s.id);
+  function solutionTitle(s) {
+    if (s.platform === "codeforces") return cfNames[s.id.toUpperCase()] || s.id;
+    if (s.platform === "cses") return csesNames[norm(s.id)] || s.id;
     return s.id;
   }
 
@@ -72,48 +75,31 @@
     return dot === -1 ? "" : f.slice(dot + 1).toLowerCase();
   }
 
-  // ---- Fix model-generated bad markdown: `code$ -> `code` ----
-  // Catches the common case where the model closes a code span with $ instead of `.
-  function sanitizeMath(md) {
-    return md.replace(/`([^`\n]{1,80}?)\$(?=[\s,.):]|$)/gm, (_, inner) => `\`${inner}\``);
-  }
-
-  // ---- Load CSES category map ----
-  async function loadCsesCategories() {
+  // ---- CF problem names (fetched from CF API, cached 24h) ----
+  async function loadCFNames() {
+    const CACHE_KEY = "cf-problem-names-v1";
+    const CACHE_TTL = 86400000; // 24h
     try {
-      const res = await fetch("https://cses.fi/problemset/", {
-        signal: AbortSignal.timeout(10000),
-      });
-      if (!res.ok) return;
-      const html = await res.text();
-      const tokens = [];
-      const h2Re = /<h2>([^<]+)<\/h2>/g;
-      const taskRe = /class="task"><a href="[^"]*\/task\/\d+"[^>]*>([^<]+)<\/a>/g;
-      let m;
-      while ((m = h2Re.exec(html))) tokens.push({ pos: m.index, type: "cat", name: m[1].trim() });
-      while ((m = taskRe.exec(html))) tokens.push({ pos: m.index, type: "task", name: m[1].trim() });
-      tokens.sort((a, b) => a.pos - b.pos);
-      let cur = "Other";
-      for (const t of tokens) {
-        if (t.type === "cat") cur = t.name;
-        else csesCategories.set(norm(t.name), cur);
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const { ts, data } = JSON.parse(cached);
+        if (Date.now() - ts < CACHE_TTL) return data;
       }
-    } catch (_) {}
-  }
-
-  // ---- Load Codeforces problem names ----
-  async function loadCfNames() {
+    } catch {}
     try {
-      const res = await fetch("https://codeforces.com/api/problemset.problems", {
-        signal: AbortSignal.timeout(20000),
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data.status !== "OK") return;
-      for (const p of data.result.problems) {
-        cfNames.set(`${p.contestId}${p.index}`, p.name);
+      const res = await fetch("https://codeforces.com/api/problemset.problems");
+      if (!res.ok) return {};
+      const json = await res.json();
+      if (json.status !== "OK") return {};
+      const map = {};
+      for (const p of json.result.problems) {
+        map[`${p.contestId}${p.index}`.toUpperCase()] = p.name;
       }
-    } catch (_) {}
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data: map })); } catch {}
+      return map;
+    } catch {
+      return {};
+    }
   }
 
   // ---- Build the index from one recursive tree call ----
@@ -159,21 +145,42 @@
     solutions = out;
   }
 
-  // ---- Sidebar render ----
+  // ---- Sidebar items ----
   function makeItem(s) {
     const a = document.createElement("a");
     a.className = "item";
-    a.textContent = displayId(s);
     a.href = `#${encodeURIComponent(s.key)}`;
     a.dataset.key = s.key;
+
+    if (s.platform === "codeforces") {
+      const name = cfNames[s.id.toUpperCase()];
+      if (name) {
+        a.classList.add("item--rich");
+        a.innerHTML =
+          `<span class="item-name">${name}</span>` +
+          `<span class="item-id">${s.id}</span>`;
+      } else {
+        a.textContent = s.id;
+      }
+    } else if (s.platform === "cses") {
+      const name = csesNames[norm(s.id)];
+      a.textContent = name || s.id;
+    } else {
+      a.textContent = s.id;
+    }
+
     return a;
   }
 
-  function makeGroupLabel(text, count, collapseKey, targetEl, cls = "group-label") {
+  function makeCollapseLabel(text, count, collapseKey, targetEl, cls) {
     const div = document.createElement("div");
     div.className = cls;
-    div.innerHTML = `<span>${text}</span><span class="group-label-right">${count != null ? `<span class="count">${count}</span>` : ""}<span class="chevron"></span></span>`;
-    div.addEventListener("click", () => {
+    const right = count != null
+      ? `<span class="count">${count}</span><span class="chevron"></span>`
+      : `<span class="chevron"></span>`;
+    div.innerHTML = `<span class="label-text">${text}</span><span class="label-right">${right}</span>`;
+    div.addEventListener("click", (e) => {
+      e.stopPropagation();
       const collapsed = targetEl.classList.toggle("collapsed");
       if (collapseKey) localStorage.setItem(collapseKey, collapsed ? "1" : "0");
     });
@@ -185,10 +192,8 @@
 
     const platforms = new Map();
     for (const s of solutions) {
-      if (q) {
-        const did = displayId(s).toLowerCase();
-        if (!(`${s.platformLabel} ${s.id} ${did}`.toLowerCase().includes(q))) continue;
-      }
+      const displayId = solutionTitle(s);
+      if (q && !(`${s.platformLabel} ${s.id} ${displayId}`.toLowerCase().includes(q))) continue;
       if (!platforms.has(s.platformLabel)) platforms.set(s.platformLabel, []);
       platforms.get(s.platformLabel).push(s);
     }
@@ -202,24 +207,27 @@
     for (const [label, items] of platforms) {
       const g = document.createElement("div");
       g.className = "group";
-      const gKey = `nav-collapsed:${label}`;
+      const gKey = `nav:${label}`;
       if (localStorage.getItem(gKey) === "1") g.classList.add("collapsed");
 
-      g.appendChild(makeGroupLabel(label, items.length, gKey, g));
+      g.appendChild(makeCollapseLabel(label, items.length, gKey, g, "group-label"));
 
-      if (label === "CSES" && csesCategories.size > 0 && !q) {
+      const isCses = label === "CSES";
+      const hasCats = isCses && Object.keys(csesCategories).length > 0;
+
+      if (hasCats && !q) {
         const cats = new Map();
         for (const s of items) {
-          const cat = csesCategories.get(norm(s.id)) || "Other";
+          const cat = csesCategories[norm(s.id)] || "Other";
           if (!cats.has(cat)) cats.set(cat, []);
           cats.get(cat).push(s);
         }
         for (const [cat, catItems] of cats) {
           const sg = document.createElement("div");
           sg.className = "subgroup";
-          const sgKey = `nav-collapsed:CSES:${cat}`;
+          const sgKey = `nav:CSES:${cat}`;
           if (localStorage.getItem(sgKey) === "1") sg.classList.add("collapsed");
-          sg.appendChild(makeGroupLabel(cat, catItems.length, sgKey, sg, "subgroup-label"));
+          sg.appendChild(makeCollapseLabel(cat, catItems.length, sgKey, sg, "subgroup-label"));
           catItems.forEach((s) => sg.appendChild(makeItem(s)));
           g.appendChild(sg);
         }
@@ -239,7 +247,7 @@
     );
   }
 
-  // ---- Render a solution ----
+  // ---- Render code ----
   function renderCode(text, language) {
     let html;
     try {
@@ -279,12 +287,20 @@
       currentCode = codeText;
 
       el.cPlatform.textContent = s.platformLabel;
-      el.cId.textContent = displayId(s);
+
+      if (s.platform === "codeforces" && cfNames[s.id.toUpperCase()]) {
+        el.cId.textContent = `${s.id} — ${cfNames[s.id.toUpperCase()]}`;
+      } else if (s.platform === "cses" && csesNames[norm(s.id)]) {
+        el.cId.textContent = csesNames[norm(s.id)];
+      } else {
+        el.cId.textContent = s.id;
+      }
+
       el.cSource.href = `https://github.com/${owner}/${repo}/blob/${branch}/${s.codePath}`;
 
       if (s.mdPath && mdRes && mdRes.ok) {
-        const rawMd = sanitizeMath(await mdRes.text());
-        el.desc.innerHTML = marked.parse(rawMd);
+        const rawMd = await mdRes.text();
+        el.desc.innerHTML = marked.parse(sanitizeMd(rawMd));
         renderMathInElement(el.desc, {
           delimiters: [
             { left: "$$", right: "$$", display: true },
@@ -300,7 +316,7 @@
       }
       el.fileName.textContent = s.codePath.split("/").pop();
       renderCode(codeText, extLang[ext(s.codePath)]);
-      document.title = `${displayId(s)} · ${s.platformLabel}`;
+      document.title = `${solutionTitle(s)} · ${s.platformLabel}`;
 
       el.empty.hidden = true;
       el.loading.hidden = true;
@@ -334,6 +350,17 @@
     }
   }
 
+  // ---- Sidebar collapse ----
+  function setSidebarCollapsed(on) {
+    document.body.classList.toggle("sidebar-collapsed", on);
+    el.sidebarToggle.textContent = on ? "›" : "‹";
+    localStorage.setItem("sidebar-collapsed", on ? "1" : "0");
+  }
+  el.sidebarToggle.addEventListener("click", () =>
+    setSidebarCollapsed(!document.body.classList.contains("sidebar-collapsed"))
+  );
+  if (localStorage.getItem("sidebar-collapsed") === "1") setSidebarCollapsed(true);
+
   // ---- Events ----
   el.filter.addEventListener("input", (e) => renderNav(e.target.value));
   el.copyBtn.addEventListener("click", async () => {
@@ -347,23 +374,14 @@
     }
   });
   el.menuToggle.addEventListener("click", () => document.body.classList.toggle("nav-open"));
-
-  // Sidebar collapse (desktop)
-  function setSidebarCollapsed(on) {
-    document.body.classList.toggle("sidebar-collapsed", on);
-    localStorage.setItem("sidebar-collapsed", on ? "1" : "0");
-  }
-  el.sidebarToggle.addEventListener("click", () => setSidebarCollapsed(true));
-  el.sidebarExpand.addEventListener("click", () => setSidebarCollapsed(false));
-  if (localStorage.getItem("sidebar-collapsed") === "1") setSidebarCollapsed(true);
-
   window.addEventListener("hashchange", route);
 
   // ---- Boot ----
   (async () => {
     el.brandName.textContent = repo;
     try {
-      await Promise.all([loadIndex(), loadCsesCategories(), loadCfNames()]);
+      const [, loadedCFNames] = await Promise.all([loadIndex(), loadCFNames()]);
+      cfNames = loadedCFNames;
       renderNav();
       el.sideFoot.textContent = `${solutions.length} solution${solutions.length === 1 ? "" : "s"}`;
       route();

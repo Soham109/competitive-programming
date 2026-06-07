@@ -147,7 +147,17 @@ HARD RULES:
 - CRITICAL — inline code spans: every backtick that opens a code span MUST be closed with a backtick. NEVER use $ to close a backtick span. WRONG: \`dp[0] = 0$. CORRECT: \`dp[0] = 0\`.
 - CRITICAL — dollar signs: $...$ is for mathematical expressions ONLY. Never put English prose, conjunctions, or plain words inside dollar signs. WRONG: $since zero coins are needed$ or $remains equal to$. CORRECT: $dp[x] = 0$.
 - Be direct and technical. No filler ("We can observe that", "It is clear", "Simply", "Note that").
-- Output ONLY the markdown starting at "# {TITLE}". Do NOT wrap it in code fences.`;
+- Output ONLY the markdown starting at "# {TITLE}". Do NOT wrap it in code fences.
+
+LATEX CRITICAL RULES — violations cause visible rendering bugs in the browser:
+- $...$ must contain ONLY a valid LaTeX math expression: variables, formulas, indices, complexities.
+  NEVER put English prose inside $...$: no $since$, $if we$, $the sum of$, $output -1$.
+- Every $ must be CLOSED on the SAME LINE. A sentence must never have an unmatched $.
+- NEVER place a backtick (\`) immediately adjacent to a $ sign with no space between them.
+  BAD:  \`dp[0]\`$since the answer is $0$   GOOD: \`dp[0]\` since the answer is $0$
+  BAD:  $n$\`arr\`                            GOOD: $n$ elements in \`arr\`
+- Pick ONE style per concept in each sentence: either $dp[i]$ (LaTeX) or \`dp[i]\` (code span). Never both for the same thing in the same clause.
+- Sanity check before outputting: delete all $...$. The remaining prose must be grammatically correct English.`;
 
 const GOLD = `
 === GOLD-STANDARD EXAMPLE (explains WHY, not WHAT) ===
@@ -206,7 +216,7 @@ function cleanOutput(text) {
   let out = text.trim();
   out = out.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();   // reasoning models
   out = out.replace(/^```(?:markdown|md)?\s*\n/, '').replace(/\n```\s*$/, '').trim(); // outer fence
-  // Try exact basename first (fallback for non-CF titles), then any H1
+  // Try exact basename first, then any H1 (CF titles may use problem name instead of id)
   const exact = out.indexOf(`# ${basename}`);
   if (exact > 0) { out = out.slice(exact).trim(); }
   else {
