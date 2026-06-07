@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solutions</title>
+  <link rel="preconnect" href="https://api.github.com" />
+  <link rel="preconnect" href="https://raw.githubusercontent.com" />
+  <link rel="stylesheet" href="styles.css" />
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css"
+  />
+</head>
+<body>
+  <button id="menu-toggle" aria-label="Toggle menu">≡</button>
+
+  <aside id="sidebar">
+    <header class="brand">
+      <a id="repo-link" href="#" target="_blank" rel="noopener">
+        <span class="brand-name" id="brand-name">competitive&#8209;programming</span>
+        <span class="brand-sub">solutions</span>
+      </a>
+    </header>
+    <div id="filter-wrap">
+      <input id="filter" type="text" placeholder="Filter…" autocomplete="off" spellcheck="false" />
+    </div>
+    <nav id="nav" aria-label="Solutions"></nav>
+    <footer class="side-foot" id="side-foot"></footer>
+  </aside>
+
+  <main id="main">
+    <div id="empty" class="state">
+      <div class="state-inner">
+        <h1>Solutions</h1>
+        <p>Select a problem from the left to view its code and write&#8209;up.</p>
+        <p class="muted">Add a README next to a solution to give it a description.</p>
+      </div>
+    </div>
+
+    <article id="content" hidden>
+      <header id="content-head">
+        <div class="crumbs">
+          <span id="c-platform"></span>
+          <span class="sep">/</span>
+          <span id="c-id"></span>
+        </div>
+        <a id="c-source" class="ghost-btn" href="#" target="_blank" rel="noopener">View on GitHub ↗</a>
+      </header>
+
+      <section id="desc" class="markdown-body"></section>
+
+      <section id="editor">
+        <div class="editor-bar">
+          <span id="file-name" class="file-name"></span>
+          <button id="copy-btn" class="ghost-btn">Copy</button>
+        </div>
+        <div class="editor-body">
+          <pre><code id="code"></code></pre>
+        </div>
+      </section>
+    </article>
+
+    <div id="loading" class="state" hidden>
+      <div class="state-inner"><p class="muted">Loading…</p></div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
