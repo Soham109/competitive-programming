@@ -1,0 +1,57 @@
+name: Generate READMEs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'codeforces/**.cpp'
+      - 'cses/**.cpp'
+
+jobs:
+  gen-readme:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Find new .cpp files needing a README
+        id: find
+        run: |
+          # Get .cpp files added in this push (not modified, not deleted)
+          ADDED=$(git diff --name-only --diff-filter=A HEAD~1 HEAD 2>/dev/null | grep -E '\.(cpp|cc|cxx)$' || true)
+          NEEDS=""
+          for f in $ADDED; do
+            base="${f%.*}"
+            fname=$(basename "$f" | sed 's/\.[^.]*$//')
+            # Skip Template files
+            if [ "$fname" = "Template" ]; then continue; fi
+            # Skip if .md already exists
+            if [ -f "${base}.md" ]; then continue; fi
+            NEEDS="$NEEDS $f"
+          done
+          NEEDS="${NEEDS## }"
+          echo "needs=$NEEDS" >> "$GITHUB_OUTPUT"
+          echo "Files needing README: $NEEDS"
+
+      - name: Generate READMEs via Claude
+        if: steps.find.outputs.needs != ''
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          for f in ${{ steps.find.outputs.needs }}; do
+            echo "Generating README for $f"
+            node .github/scripts/gen-readme.js "$f"
+          done
+
+      - name: Commit generated READMEs
+        if: steps.find.outputs.needs != ''
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add '**/*.md'
+          git diff --staged --quiet || git commit -m "docs: auto-generate READMEs [skip ci]"
+          git push
