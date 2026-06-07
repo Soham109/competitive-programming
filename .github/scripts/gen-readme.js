@@ -90,14 +90,17 @@ async function codeforcesContext() {
 async function csesContext() {
   // Files are named by problem title; resolve title -> task id from the index.
   let id = null;
+  // Normalize to alphanumeric-only so any filename style matches the title:
+  // "Weird Algorithm", "weirdalgorithm", "WeirdAlgorithm", "weird_algorithm" -> "weirdalgorithm".
+  const norm = (s) => s.toLowerCase().replace(/&amp;/g, '&').replace(/[^a-z0-9]/g, '');
+  const target = norm(basename);
   const idx = await safeGet('https://cses.fi/problemset/', { headers: { 'User-Agent': 'Mozilla/5.0' } }, 20000, 2);
   if (idx) {
     const html = await idx.text();
     const re = /href="\/problemset\/task\/(\d+)"[^>]*>([^<]+)</g;
-    const target = basename.trim().toLowerCase();
     let m;
     while ((m = re.exec(html))) {
-      if (m[2].trim().toLowerCase() === target) { id = m[1]; break; }
+      if (norm(m[2]) === target) { id = m[1]; break; }
     }
   }
   const url = id ? `https://cses.fi/problemset/task/${id}` : 'https://cses.fi/problemset/';
