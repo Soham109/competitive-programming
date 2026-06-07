@@ -184,6 +184,7 @@
 
       if (s.mdPath && mdRes && mdRes.ok) {
         el.desc.innerHTML = marked.parse(await mdRes.text());
+        renderMathInElement(el.desc, { delimiters: [{left:"$$",right:"$$",display:true},{left:"$",right:"$",display:false}], throwOnError: false });
         el.desc.hidden = false;
       } else {
         el.desc.innerHTML = "";
