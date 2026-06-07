@@ -29,9 +29,11 @@ if (platform === 'codeforces') {
   problemUrl = '';
 }
 
-const prompt = `You are writing a README for a competitive programming solution. Match this example exactly in style, tone, and formatting.
+const prompt = `You are a strong competitive programmer writing an editorial-quality README for a solution. You are given ONLY the source code — not the problem statement. Your job is to REVERSE-ENGINEER what the problem is asking and, more importantly, explain the INSIGHT that makes the solution work and HOW someone would arrive at it.
 
-=== EXAMPLE ===
+Study this gold-standard example. Notice it explains WHY, not WHAT:
+
+=== GOLD EXAMPLE ===
 # 2218D
 
 > [Problem on Codeforces](https://codeforces.com/problemset/problem/2218/D)
@@ -56,6 +58,8 @@ Generate the first primes and pair up consecutive ones. For each position $i$ th
 - Multiply with \`1LL\` before the second operand to stay in 64-bit range.
 === END EXAMPLE ===
 
+Now write the README for this solution.
+
 Problem: ${basename} on ${platformLabel}
 URL: ${problemUrl}
 
@@ -63,16 +67,32 @@ URL: ${problemUrl}
 ${code}
 \`\`\`
 
-RULES:
-1. Title: \`# ${basename}\` only.
-2. Second line: \`> [Problem on ${platformLabel}](${problemUrl})\`
-3. ## Idea — 1-3 sentences. Core insight. Why it works. LaTeX for all math.
-4. ## Approach — numbered steps, one sentence each. Reference exact variable/function names. LaTeX for formulas/indices/bounds.
-5. ## Complexity — bullet list. Bold **Time:** and **Space:**. Always $O(...)$ in LaTeX with justification.
-6. ## Notes — ONLY if there is a non-obvious implementation detail. Omit entirely if nothing surprising.
-7. LaTeX: every variable, formula, index in $...$. Use \\cdot, \\log, \\sqrt{}, \\leq, \\geq, \\in, \\pmod{}.
-8. No filler words. No "We observe", "Note that", "Simply". Be direct.
-9. Output ONLY the markdown starting with # ${basename}.`;
+Produce EXACTLY these sections:
+
+# ${basename}
+
+> [Problem on ${platformLabel}](${problemUrl})
+
+## Idea
+2-5 sentences. State the SINGLE key observation that cracks the problem, and WHY it is true. This is the "aha" — e.g. a divisibility property, an invariant, a greedy exchange argument, a reformulation. If the code uses a non-obvious math fact (e.g. "a number is divisible by 9 iff its digit sum is"), name it explicitly and explain how it connects to the operations in the problem. Do NOT describe code structure here.
+
+## Approach
+A short derivation, not a code walkthrough. Walk the reader from the observation to the algorithm: what quantity are we tracking, what choices exist, why the search/greedy/formula is correct and sufficient. Use a numbered list ONLY for the genuine algorithmic steps (the reasoning), 3-6 items. BANNED phrases that just narrate code: "read the input", "initialize a variable", "loop over the string", "call the function", "output YES/NO". Every step must carry reasoning ("because...", "this guarantees...", "it suffices to...").
+
+## Complexity
+- **Time:** $O(\\cdot)$ with a one-clause reason tied to the actual bottleneck.
+- **Space:** $O(\\cdot)$ with a one-clause reason.
+
+## Notes
+ONLY include if there is a genuine non-obvious implementation detail (overflow cast, why a bound like $\\le 9$ suffices, 0/1-indexing trap, modular trick). Omit the whole section otherwise.
+
+HARD RULES:
+- LaTeX for EVERY variable, formula, index, modulus and complexity: $p_i$, $O(n \\log n)$, $S + 2a + 6b \\equiv 0 \\pmod 9$. Never write raw math.
+- Use \`\\cdot, \\log, \\sqrt{}, \\leq, \\geq, \\in, \\pmod{}, \\equiv$\`.
+- Reference actual variable/function names from the code in \`backticks\` when pointing to a concrete piece.
+- Be direct and technical. No filler ("We can observe that", "It is clear", "Simply", "Note that").
+- Explain the MATH/ALGORITHM, never just what each line does.
+- Output ONLY the markdown, starting at \`# ${basename}\`.`;
 
 async function main() {
   const res = await fetch('https://models.inference.ai.azure.com/chat/completions', {
@@ -82,8 +102,9 @@ async function main() {
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      max_tokens: 1024,
+      model: 'gpt-4o',
+      max_tokens: 1400,
+      temperature: 0.4,
       messages: [{ role: 'user', content: prompt }],
     }),
   });
