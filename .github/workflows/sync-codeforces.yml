@@ -30,7 +30,7 @@ jobs:
       - name: Check Codeforces configuration
         run: |
           if [ -z "$CODEFORCES_HANDLE" ]; then
-            echo "Set repository variable CODEFORCES_HANDLE to your Codeforces handle."
+            echo "Codeforces handle is not configured."
             exit 1
           fi
           if [ -z "$CODEFORCES_COOKIE" ]; then
@@ -38,12 +38,12 @@ jobs:
             exit 1
           fi
         env:
-          CODEFORCES_HANDLE: ${{ vars.CODEFORCES_HANDLE }}
+          CODEFORCES_HANDLE: ${{ vars.CODEFORCES_HANDLE || 'SohamAggarwal' }}
           CODEFORCES_COOKIE: ${{ secrets.CODEFORCES_COOKIE }}
 
       - name: Download accepted Codeforces sources
         env:
-          CODEFORCES_HANDLE: ${{ vars.CODEFORCES_HANDLE }}
+          CODEFORCES_HANDLE: ${{ vars.CODEFORCES_HANDLE || 'SohamAggarwal' }}
           CODEFORCES_COOKIE: ${{ secrets.CODEFORCES_COOKIE }}
           MAX_SUBMISSIONS: ${{ github.event.inputs.max_submissions || '0' }}
         run: |

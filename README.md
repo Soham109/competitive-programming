@@ -9,8 +9,12 @@ started manually from GitHub Actions. It reads accepted submissions from the
 Codeforces API, downloads the source for missing C++ solutions, generates
 READMEs, and pushes the result.
 
-Repository settings needed:
+The workflow defaults to Codeforces handle `SohamAggarwal`. Repository settings
+needed:
 
-- Variable `CODEFORCES_HANDLE`: your Codeforces handle.
 - Secret `CODEFORCES_COOKIE`: the full `Cookie` request header from a logged-in
   Codeforces browser session.
+
+Optional:
+
+- Variable `CODEFORCES_HANDLE`: override the default handle.
