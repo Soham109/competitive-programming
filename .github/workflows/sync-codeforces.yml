@@ -1,0 +1,89 @@
+name: Sync Codeforces Accepted Solutions
+
+on:
+  schedule:
+    # Daily at 00:30 IST.
+    - cron: '0 19 * * *'
+  workflow_dispatch:
+    inputs:
+      max_submissions:
+        description: 'Latest submissions to scan; 0 scans all available submissions'
+        required: false
+        default: '0'
+
+jobs:
+  sync-codeforces:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      models: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check Codeforces configuration
+        run: |
+          if [ -z "$CODEFORCES_HANDLE" ]; then
+            echo "Set repository variable CODEFORCES_HANDLE to your Codeforces handle."
+            exit 1
+          fi
+          if [ -z "$CODEFORCES_COOKIE" ]; then
+            echo "Set repository secret CODEFORCES_COOKIE to a logged-in Codeforces Cookie header."
+            exit 1
+          fi
+        env:
+          CODEFORCES_HANDLE: ${{ vars.CODEFORCES_HANDLE }}
+          CODEFORCES_COOKIE: ${{ secrets.CODEFORCES_COOKIE }}
+
+      - name: Download accepted Codeforces sources
+        env:
+          CODEFORCES_HANDLE: ${{ vars.CODEFORCES_HANDLE }}
+          CODEFORCES_COOKIE: ${{ secrets.CODEFORCES_COOKIE }}
+          MAX_SUBMISSIONS: ${{ github.event.inputs.max_submissions || '0' }}
+        run: |
+          node .github/scripts/codeforces-sync.js \
+            --handle "$CODEFORCES_HANDLE" \
+            --max-submissions "$MAX_SUBMISSIONS"
+
+      - name: Find .cpp files needing a README
+        id: find
+        run: |
+          ALL=$(find codeforces -name "*.cpp" -o -name "*.cc" -o -name "*.cxx" 2>/dev/null | sort || true)
+          NEEDS=""
+          for f in $ALL; do
+            base="${f%.*}"
+            fname=$(basename "$f" | sed 's/\.[^.]*$//')
+            if [ "$fname" = "Template" ]; then continue; fi
+            if [ -f "${base}.md" ]; then continue; fi
+            NEEDS="$NEEDS $f"
+          done
+          NEEDS="${NEEDS## }"
+          echo "needs=$NEEDS" >> "$GITHUB_OUTPUT"
+          echo "Files needing README: $NEEDS"
+
+      - name: Refresh CSES category map
+        run: node .github/scripts/update-cses-categories.js
+
+      - name: Generate READMEs via GitHub Models
+        if: steps.find.outputs.needs != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for f in ${{ steps.find.outputs.needs }}; do
+            echo "Generating README for $f"
+            node .github/scripts/gen-readme.js "$f"
+          done
+
+      - name: Commit and push synced solutions
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add codeforces docs/cses-categories.js
+          git diff --staged --quiet || git commit -m "sync accepted Codeforces solutions"
+          git push
