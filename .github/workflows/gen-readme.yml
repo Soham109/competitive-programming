@@ -1,6 +1,11 @@
 name: Generate READMEs
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'codeforces/**.cpp'
+      - 'cses/**.cpp'
   workflow_dispatch:
     inputs:
       scan_all:
@@ -23,7 +28,11 @@ jobs:
       - name: Find .cpp files needing a README
         id: find
         run: |
-          ALL=$(find codeforces cses -name "*.cpp" -o -name "*.cc" -o -name "*.cxx" 2>/dev/null | sort || true)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            ALL=$(find codeforces cses -name "*.cpp" -o -name "*.cc" -o -name "*.cxx" 2>/dev/null | sort || true)
+          else
+            ALL=$(git diff --name-only --diff-filter=A HEAD~1 HEAD 2>/dev/null | grep -E '\.(cpp|cc|cxx)$' || true)
+          fi
 
           NEEDS=""
           for f in $ALL; do
