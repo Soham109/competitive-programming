@@ -18,31 +18,30 @@ const ll LINF = 4e18;
 #define all(c) (c).begin(), (c).end()
 #define rep(i, a, b) for (int i = (a); i < (b); i++)
 
-void solve() {
-    int n, x;
-    cin>>n>>x;
-    string s;
-    cin >> s;
-
-    int L =0;      
-    int R = n + 1;
-
-    for(int i = x - 2; i >= 0; i--) {
-        if(s[i] == '#') {
-            L = i + 1;
-            break;
-        }
+int countUniqueDigits(ll n) {
+    if (n == 0) return 1;
+    unordered_set<int> unique_digits;
+    
+    while (n > 0) {
+        int digit = n % 10;
+        unique_digits.insert(digit);
+        n /= 10;
     }
-
-    for(int i = x; i < n; i++) {
-        if(s[i] == '#') {
-            R = i + 1;
-            break;
-        }
-    }
-
-    cout << max(min(x, n - R + 2),min(L + 1, n - x + 1)) << '\n';
+    
+    return unique_digits.size();
 }
+
+void solve() {
+    int x; cin>>x;
+    int p=1;
+    int tm=x;
+    while (tm>0) {
+        p*=10;
+        tm/= 10;
+    }
+    cout<<p+1<<"\n";
+    return; 
+}   
 
 int main() {
     ios::sync_with_stdio(false);
