@@ -38,6 +38,7 @@
 
   const csesCategories = window.CSES_CATEGORIES || {};
   const csesNames = window.CSES_NAMES || {};
+  const problemNames = window.PROBLEM_NAMES || {};
 
   marked.setOptions({ gfm: true, breaks: false });
 
@@ -54,14 +55,16 @@
 
   // Single source of truth for display names everywhere (nav, title, H1 rewrite).
   function solutionTitle(s) {
-    if (s.platform === "codeforces") return cfNames[s.id.toUpperCase()] || s.id;
-    if (s.platform === "cses") return csesNames[norm(s.id)] || splitWords(s.id);
+    const platformNames = problemNames[s.platform] || {};
+    const generatedTitle = platformNames[s.id.toUpperCase()] || platformNames[s.id];
+    if (s.platform === "codeforces") return generatedTitle || cfNames[s.id.toUpperCase()] || s.id;
+    if (s.platform === "cses") return generatedTitle || csesNames[norm(s.id)] || splitWords(s.id);
     return s.id;
   }
 
   function contentHeading(s) {
     const title = solutionTitle(s);
-    if (s.platform === "codeforces" && cfNames[s.id.toUpperCase()]) {
+    if (s.platform === "codeforces" && title !== s.id) {
       return `${s.id} — ${title}`;
     }
     return title;

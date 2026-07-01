@@ -65,11 +65,14 @@ jobs:
             node .github/scripts/gen-readme.js "$f"
           done
 
+      - name: Refresh problem name map (docs/problem-names.js)
+        run: node .github/scripts/update-problem-names.js
+
       - name: Commit generated READMEs and category map
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/cses-categories.js '**/*.md'
+          git add docs/cses-categories.js docs/problem-names.js '**/*.md'
           git diff --staged --quiet || git commit -m "docs: refresh CSES categories + auto-generate READMEs [skip ci]"
           git pull --rebase origin main
           git push || (git pull --rebase origin main && git push)
