@@ -13,17 +13,23 @@ on:
         required: false
         default: 'true'
 
+concurrency:
+  group: generate-readmes-main
+  cancel-in-progress: false
+
 jobs:
   gen-readme:
     runs-on: ubuntu-latest
     permissions:
       contents: write
       models: read
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Find .cpp files needing a README
         id: find
@@ -65,4 +71,5 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/cses-categories.js '**/*.md'
           git diff --staged --quiet || git commit -m "docs: refresh CSES categories + auto-generate READMEs [skip ci]"
-          git push
+          git pull --rebase origin main
+          git push || (git pull --rebase origin main && git push)
