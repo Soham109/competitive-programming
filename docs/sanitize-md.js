@@ -50,6 +50,11 @@
   function sanitizeReadmeMd(md) {
     let out = md;
 
+    // Normalize common LaTeX delimiters the model may emit into the site's
+    // supported KaTeX delimiters.
+    out = out.replace(/\\\[([\s\S]+?)\\\]/g, (_, expr) => `$$${expr}$$`);
+    out = out.replace(/\\\(([^()\n]+?)\\\)/g, (_, expr) => `$${expr}$`);
+
     out = demoteCodeVarsInMath(out);
 
     // Backtick spans that contain LaTeX commands → math mode

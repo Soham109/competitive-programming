@@ -13,9 +13,9 @@ The core insight is that this is a classic *0/1 Knapsack Problem*. For each book
 2. Iterate through each book (denoted by index $j$). For each book, consider its price $h_j$ and pages $s_j$.
 
 3. For each budget $i$ from $x$ down to $h_j$ (iterate in reverse to avoid overwriting results for the current book), update `dp[i]` as:
-   \[
+   $$
    dp[i] = \max(dp[i], dp[i - h_j] + s_j)
-   \]
+   $$
    This transition ensures that we either skip the book (keep the current value of $dp[i]$) or include it (add its pages $s_j$ to the best result achievable with the remaining budget $i - h_j$).
 
 4. After processing all books, the maximum number of pages that can be bought with a budget of $x$ is stored in `dp[x]`.
