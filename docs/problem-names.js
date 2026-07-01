@@ -10,6 +10,7 @@ window.PROBLEM_NAMES = {
     "1366B": "Shuffle",
     "1420B": "Rock and Lever",
     "1638C": "Inversion Graph",
+    "1738C": "Even Number Addicts",
     "1882B": "Sets and Union",
     "2050C": "Uninteresting Number",
     "2064C": "Remove the Ends",
