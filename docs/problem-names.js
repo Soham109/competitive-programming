@@ -8,6 +8,7 @@ window.PROBLEM_NAMES = {
     "1203B": "Equal Rectangles",
     "1260B": "Obtain Two Zeroes",
     "1366B": "Shuffle",
+    "1406B": "Maximum Product",
     "1420B": "Rock and Lever",
     "1638C": "Inversion Graph",
     "1693A": "Directional Increase",
