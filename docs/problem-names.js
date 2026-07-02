@@ -22,6 +22,7 @@ window.PROBLEM_NAMES = {
     "2137D": "Replace with Occurrences",
     "2152B": "Catching the Krug",
     "2161C": "Loyalty",
+    "2169C": "Range Operation",
     "2200D": "Portal",
     "2202B": "ABAB Construction",
     "2218D": "The 67th OEIS Problem",
