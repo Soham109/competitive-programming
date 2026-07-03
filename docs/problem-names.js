@@ -39,6 +39,7 @@ window.PROBLEM_NAMES = {
     "2241C": "RemovevomeR",
     "2241D": "An Alternative Way",
     "450B": "Jzzhu and Sequences",
+    "710B": "Optimal Point on a Line",
     "808B": "Average Sleep Time",
     "976C": "Nested Segments"
   },
