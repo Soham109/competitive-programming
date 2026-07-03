@@ -38,6 +38,7 @@ window.PROBLEM_NAMES = {
     "2241B": "Good times Good times",
     "2241C": "RemovevomeR",
     "2241D": "An Alternative Way",
+    "450B": "Jzzhu and Sequences",
     "808B": "Average Sleep Time",
     "976C": "Nested Segments"
   },
