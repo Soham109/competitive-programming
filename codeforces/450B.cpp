@@ -21,13 +21,20 @@ const ll LINF = 4e18;
 #define rep(i, a, b) for (int i = (a); i < (b); i++)
 
 void solve() {
-    int n; cin>>n;
-    vi a(n); rep(i,0,n) cin>>a[i];
-}   
+    ll x, y;
+    cin >>x>>y;
+    ll n;
+    cin>>n;
+
+    vll f = {x, y, y - x, -x, -y, x - y};
+    ll ans = f[(n-1)%6] % MOD;
+    if (ans<0) ans += MOD;
+
+    cout<<ans<<'\n';
+}
 
 int main() {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
-    int t; cin>>t;
-    while(t--) solve();
+    solve();
 }
