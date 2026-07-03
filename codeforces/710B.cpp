@@ -22,12 +22,7 @@ void solve() {
     int n; cin>>n;
     vi a(n); rep(i,0,n) cin>>a[i];
     sort(all(a));
-    if(n&1) {
-        cout<<a[n/2]<<endl;
-    }
-    else {
-        cout<<a[(n-1)/2]<<endl;
-    }
+     cout<<a[(n-1)/2]<<'\n';
 }   
 
 int main() {
