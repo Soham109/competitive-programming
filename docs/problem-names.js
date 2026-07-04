@@ -17,6 +17,7 @@ window.PROBLEM_NAMES = {
     "2050C": "Uninteresting Number",
     "2064C": "Remove the Ends",
     "2072C": "Creating Keys for StORages Has Become My Main Skill",
+    "2075B": "Array Recoloring",
     "2124C": "Subset Multiplication",
     "2127B": "Hamiiid, Haaamid... Hamid?",
     "2129A": "Double Perspective",
