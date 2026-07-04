@@ -14,6 +14,7 @@ window.PROBLEM_NAMES = {
     "1693A": "Directional Increase",
     "1738C": "Even Number Addicts",
     "1882B": "Sets and Union",
+    "2037D": "Sharky Surfing",
     "2050C": "Uninteresting Number",
     "2064C": "Remove the Ends",
     "2072C": "Creating Keys for StORages Has Become My Main Skill",
