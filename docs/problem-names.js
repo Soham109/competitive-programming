@@ -46,6 +46,7 @@ window.PROBLEM_NAMES = {
     "450B": "Jzzhu and Sequences",
     "710B": "Optimal Point on a Line",
     "808B": "Average Sleep Time",
+    "962C": "Make a Square",
     "976C": "Nested Segments"
   },
   "cses": {
