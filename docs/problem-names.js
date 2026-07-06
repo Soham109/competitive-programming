@@ -43,6 +43,8 @@ window.PROBLEM_NAMES = {
     "2241B": "Good times Good times",
     "2241C": "RemovevomeR",
     "2241D": "An Alternative Way",
+    "2242A": "Bigrams",
+    "2242B": "Predominant Frequency Division",
     "450B": "Jzzhu and Sequences",
     "710B": "Optimal Point on a Line",
     "808B": "Average Sleep Time",
