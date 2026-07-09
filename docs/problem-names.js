@@ -46,6 +46,7 @@ window.PROBLEM_NAMES = {
     "2242A": "Bigrams",
     "2242B": "Predominant Frequency Division",
     "450B": "Jzzhu and Sequences",
+    "489B": "BerSU Ball",
     "710B": "Optimal Point on a Line",
     "808B": "Average Sleep Time",
     "962C": "Make a Square",
