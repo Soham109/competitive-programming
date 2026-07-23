@@ -15,6 +15,7 @@ window.PROBLEM_NAMES = {
     "1697C": "awoo's Favorite Problem",
     "1738C": "Even Number Addicts",
     "1882B": "Sets and Union",
+    "1931D": "Divisible Pairs",
     "2037D": "Sharky Surfing",
     "2050C": "Uninteresting Number",
     "2064C": "Remove the Ends",
