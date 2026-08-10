@@ -63,6 +63,7 @@ window.PROBLEM_NAMES = {
     "976C": "Nested Segments"
   },
   "cses": {
+    "1418C": "1418C",
     "ARRAYDESCRIPTION": "Array Description",
     "BOOKSHOP": "Book Shop",
     "COINCOMBINATIONSI": "Coin Combinations I",
