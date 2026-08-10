@@ -10,7 +10,6 @@ window.PROBLEM_NAMES = {
     "1366B": "Shuffle",
     "1406B": "Maximum Product",
     "1420B": "Rock and Lever",
-    "1490D": "Permutation Transformation",
     "1638C": "Inversion Graph",
     "1693A": "Directional Increase",
     "1697C": "awoo's Favorite Problem",
@@ -23,7 +22,6 @@ window.PROBLEM_NAMES = {
     "2064C": "Remove the Ends",
     "2072C": "Creating Keys for StORages Has Become My Main Skill",
     "2075B": "Array Recoloring",
-    "2091E": "Interesting Ratio",
     "2112C": "Coloring Game",
     "2124C": "Subset Multiplication",
     "2127B": "Hamiiid, Haaamid... Hamid?",
@@ -64,7 +62,6 @@ window.PROBLEM_NAMES = {
   },
   "cses": {
     "1418C": "1418C",
-    "ARRAYDESCRIPTION": "Array Description",
     "BOOKSHOP": "Book Shop",
     "COINCOMBINATIONSI": "Coin Combinations I",
     "COINCOMBINATIONSII": "Coin Combinations II",
