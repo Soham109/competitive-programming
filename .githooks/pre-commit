@@ -11,8 +11,11 @@
 [ -n "$SKIP_README" ] && exit 0
 command -v claude >/dev/null 2>&1 || exit 0   # no CLI here, let CI handle it
 
-# Only files being added in THIS commit, under the two solution directories.
-staged=$(git diff --cached --name-only --diff-filter=A \
+# Solution files touched by THIS commit. Modified counts as well as added: a
+# stub committed earlier and solved later shows up as a modification, and that
+# is exactly when its README should finally be written. Files that already have
+# a .md are filtered out below, so this never regenerates existing write-ups.
+staged=$(git diff --cached --name-only --diff-filter=AM \
          | grep -E '^(codeforces|cses)/.*\.(cpp|cc|cxx)$' || true)
 [ -z "$staged" ] && exit 0
 
