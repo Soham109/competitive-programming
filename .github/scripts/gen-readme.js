@@ -1,11 +1,15 @@
 const fs = require('fs');
+const { execFile } = require('child_process');
 const { sanitizeReadmeMd } = require('../../docs/sanitize-md.js');
 
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
-const MODEL = process.env.MODEL || 'gpt-4o'; // override via MODEL env (e.g. o1, DeepSeek-R1-0528)
-const MODELS_ENDPOINT = 'https://models.inference.ai.azure.com/chat/completions';
+// Generation runs through the Claude Code CLI in headless mode, authenticated
+// with CLAUDE_CODE_OAUTH_TOKEN so it draws on the Claude subscription rather
+// than metered API credits. GitHub Models (the previous backend) is retired.
+const MODEL = process.env.MODEL || 'sonnet'; // alias or full model id
+const CLI_TIMEOUT_MS = Number(process.env.CLAUDE_TIMEOUT_MS || 180000);
 
 const filePath = process.argv[2];
 if (!filePath) { console.error('Usage: node gen-readme.js <path>'); process.exit(1); }
@@ -161,6 +165,22 @@ HARD RULES:
 - Be direct and technical. No filler ("We can observe that", "It is clear", "Simply", "Note that").
 - Output ONLY the markdown starting at "# {TITLE}". Do NOT wrap it in code fences.
 
+VOICE — this must read like a person explaining the problem to a friend, not like generated text:
+- NO COLONS in prose. A colon mid-sentence is the strongest tell that text was machine-written.
+  WRONG: "The trick is this: sort the array first."   RIGHT: "The trick is to sort the array first."
+  WRONG: "Two cases arise: the even case and the odd case."   RIGHT: "Two cases arise, one even and one odd."
+  WRONG: "**Key idea:** the sum is invariant."   RIGHT: "The sum never changes."
+  The ONLY colons allowed in the whole document are the "**Time:**" and "**Space:**" labels in Complexity.
+- NO em-dashes (—) in prose. Use a comma, a full stop, or restructure the sentence.
+- Vary sentence length. Machine text marches at a uniform medium length; a person mixes a short blunt
+  sentence against a longer one that works through the reasoning.
+- Do NOT open consecutive sentences or steps with the same word or construction.
+- Never use "Moreover", "Furthermore", "Additionally", "It is worth noting", "Importantly",
+  "leverage", "utilize", "delve", "crucial", "robust", "seamless".
+- Do not restate a point you already made in different words to pad a paragraph. Say it once.
+- Write "we" or the imperative like a real editorial does. Do not narrate your own process
+  ("Let us now consider", "In this section we will").
+
 LATEX CRITICAL RULES — violations cause visible rendering bugs in the browser:
 - $...$ must contain ONLY a valid LaTeX math expression: variables, formulas, indices, complexities.
   NEVER put English prose inside $...$: no $since$, $if we$, $the sum of$, $output -1$.
@@ -270,41 +290,38 @@ The model-backed editorial generator was unavailable, so this fallback keeps the
 - **Space:** $O(1)$ — aside from the input storage used by the implementation.`;
 }
 
+// Run the Claude Code CLI headlessly, feeding the prompt on stdin so no shell
+// quoting can mangle the problem statement or the source code.
+function runClaude(prompt) {
+  return new Promise((resolve) => {
+    const child = execFile(
+      'claude',
+      ['-p', '--model', MODEL, '--output-format', 'text', '--disallowedTools', 'Bash', 'Edit', 'Write'],
+      { timeout: CLI_TIMEOUT_MS, maxBuffer: 10 * 1024 * 1024 },
+      (err, stdout, stderr) => {
+        if (err) {
+          const why = err.killed ? `timed out after ${CLI_TIMEOUT_MS}ms` : err.message;
+          resolve({ ok: false, reason: why, stderr: (stderr || '').trim().slice(0, 500) });
+          return;
+        }
+        resolve({ ok: true, text: stdout });
+      },
+    );
+    child.stdin.on('error', () => { /* child already gone; the callback reports it */ });
+    child.stdin.end(prompt);
+  });
+}
+
 async function callModel(prompt) {
+  if (!process.env.CLAUDE_CODE_OAUTH_TOKEN) {
+    console.error('CLAUDE_CODE_OAUTH_TOKEN is not set — cannot reach the model');
+    return null;
+  }
   for (let attempt = 0; attempt < 3; attempt++) {
-    let res;
-    try {
-      res = await fetchWithTimeout(MODELS_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`, 'content-type': 'application/json' },
-        body: JSON.stringify({
-          model: MODEL,
-          max_tokens: 1500,
-          temperature: 0.4,
-          messages: [{ role: 'user', content: prompt }],
-        }),
-      }, 60000);
-    } catch (e) {
-      console.error(`attempt ${attempt}: network error`, e.message);
-      await new Promise(r => setTimeout(r, 3000 * (attempt + 1)));
-      continue;
-    }
-    if (res.status === 429 || res.status >= 500) {
-      console.error(`attempt ${attempt}: HTTP ${res.status}, backing off`);
-      await new Promise(r => setTimeout(r, 5000 * (attempt + 1)));
-      continue;
-    }
-    const raw = await res.text();
-    let data;
-    try {
-      data = JSON.parse(raw);
-    } catch {
-      console.error(`attempt ${attempt}: HTTP ${res.status} with unparseable body (${raw.length} bytes), retrying`);
-      await new Promise(r => setTimeout(r, 5000 * (attempt + 1)));
-      continue;
-    }
-    if (!res.ok || !data.choices?.length) { console.error('API error:', JSON.stringify(data)); return null; }
-    return cleanOutput(data.choices[0].message.content);
+    const res = await runClaude(prompt);
+    if (res.ok && res.text.trim()) return cleanOutput(res.text);
+    console.error(`attempt ${attempt}: ${res.reason || 'empty response'}${res.stderr ? ` | ${res.stderr}` : ''}`);
+    await new Promise(r => setTimeout(r, 5000 * (attempt + 1)));
   }
   return null;
 }

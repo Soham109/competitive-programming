@@ -22,7 +22,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      models: read
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -54,10 +53,15 @@ jobs:
       - name: Refresh CSES category map (docs/cses-categories.js)
         run: node .github/scripts/update-cses-categories.js
 
-      - name: Generate READMEs via GitHub Models (gpt-4o)
+      - name: Install Claude Code CLI
+        if: steps.find.outputs.needs != ''
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Generate READMEs via Claude Code
         if: steps.find.outputs.needs != ''
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          MODEL: sonnet
         run: |
           for f in ${{ steps.find.outputs.needs }}; do
             echo "Generating README for $f"
