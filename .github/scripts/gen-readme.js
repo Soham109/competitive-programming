@@ -25,6 +25,15 @@ if (fs.existsSync(mdPath)) { console.log(`README exists: ${mdPath}`); process.ex
 
 const code = fs.readFileSync(filePath, 'utf8').trim();
 
+// Cheap pre-filter for unsolved stubs (template boilerplate, solve() not written
+// yet), so we don't spend a model call to be told the same thing. Every real
+// solution prints an answer, so no output statement means it isn't finished.
+// The model applies its own SKIP judgement for subtler cases.
+if (!/\b(cout|printf|puts)\b/.test(code)) {
+  console.log(`Skipping ${basename}: no output statement, looks like an unsolved stub`);
+  process.exit(0);
+}
+
 // ---------------------------------------------------------------------------
 // Small fetch helpers (timeout + retry, never throw to caller)
 // ---------------------------------------------------------------------------
@@ -156,6 +165,19 @@ A derivation, not a code walkthrough. Lead the reader from the observation to th
 ## Notes
 ONLY if there is a genuine non-obvious implementation detail (overflow cast, why a small bound suffices, indexing trap, modular trick). Omit the whole section otherwise.
 
+GROUNDING — the single most important rule. This documents ONE SPECIFIC solution, not the problem:
+- Describe the algorithm THIS code actually implements. If the code solves the problem in a way that is
+  unusual, suboptimal, or not the textbook approach, document what it does, not what it "should" do.
+- If several correct approaches exist (say DP vs greedy vs two-pointer), the editorial must describe the
+  one in the code and must not mention the others as though they were used.
+- Every claim in Approach must be traceable to a real line of the given code. Name the actual variables,
+  arrays and functions the author chose. If you cannot point at the code for a step, do not write it.
+- Do NOT import steps from a canonical editorial you happen to know for this problem. An accurate write-up
+  of a strange solution is correct; a polished write-up of a solution that is not in the file is wrong.
+- If the code does NOT implement a working solution (an empty or unfinished \`solve()\`, only scratch
+  comments, input parsing with no algorithm or output), then reply with EXACTLY the single word SKIP and
+  nothing else. Never reconstruct a solution from the statement to fill the gap.
+
 HARD RULES:
 - LaTeX for EVERY variable, formula, index, modulus and complexity: $p_i$, $O(n \\log n)$, $S + 2a + 6b \\equiv 0 \\pmod 9$. Never raw math.
 - Allowed macros: \\cdot \\log \\sqrt{} \\leq \\geq \\in \\pmod{} \\equiv \\lceil \\rceil \\lfloor \\rfloor \\sum \\frac{}{}.
@@ -229,7 +251,7 @@ function buildPrompt(ctx) {
   let problemBlock = '';
 
   if (ctx.statement) {
-    header = `You are a strong competitive programmer writing an editorial-quality README. You are given the ACTUAL problem statement and the accepted solution. Ground every claim in the statement; explain the real insight and how one arrives at it.`;
+    header = `You are a strong competitive programmer documenting THIS AUTHOR'S OWN accepted solution. You are given the ACTUAL problem statement and the author's code. Your job is to explain the insight behind the algorithm that is actually written in that code, and how one arrives at it. You are not writing a general editorial for the problem.`;
     problemBlock = `\n=== PROBLEM STATEMENT (${ctx.label} ${basename}) ===\n${ctx.statement}\n=== END STATEMENT ===\n`;
   } else {
     header = `You are a strong competitive programmer writing an editorial-quality README. The full statement could not be fetched, so REVERSE-ENGINEER what the problem asks from the code and metadata, then explain the insight and how one arrives at it.`;
@@ -313,10 +335,8 @@ function runClaude(prompt) {
 }
 
 async function callModel(prompt) {
-  if (!process.env.CLAUDE_CODE_OAUTH_TOKEN) {
-    console.error('CLAUDE_CODE_OAUTH_TOKEN is not set — cannot reach the model');
-    return null;
-  }
+  // No auth check here on purpose: the CLI resolves credentials itself, from
+  // CLAUDE_CODE_OAUTH_TOKEN in CI or the logged-in session on a dev machine.
   for (let attempt = 0; attempt < 3; attempt++) {
     const res = await runClaude(prompt);
     if (res.ok && res.text.trim()) return cleanOutput(res.text);
@@ -332,20 +352,29 @@ async function callModel(prompt) {
 async function main() {
   const ctx = await getContext();
   console.log(`Context for ${basename}: statement=${ctx.statement ? 'yes' : 'no'}, meta=${ctx.meta ? 'yes' : 'no'}, model=${MODEL}`);
-  let readme = await callModel(buildPrompt(ctx));
-  if (!readme || !readme.startsWith('# ')) {
-    console.error(`Model README generation failed for ${basename}; writing fallback README`);
-    readme = fallbackReadme(ctx);
+  const readme = await callModel(buildPrompt(ctx));
+
+  // The model answers SKIP when the file has no finished solution to document,
+  // rather than reconstructing an algorithm the code does not contain.
+  if (readme && /^SKIP\b/i.test(readme.trim())) {
+    console.log(`Skipping ${basename}: the model judged the solution unfinished`);
+    process.exit(0);
   }
+
+  if (!readme || !readme.startsWith('# ')) {
+    // Write nothing rather than a template placeholder. A missing .md is retried
+    // by the next run (the workflow rescans every source file); a placeholder in
+    // its place would never be revisited, because the file now "has" a README.
+    console.error(`::warning::Model generation failed for ${basename}; leaving it for a later run`);
+    process.exit(0);
+  }
+
   fs.writeFileSync(mdPath, sanitizeReadmeMd(readme) + '\n');
   console.log(`Generated: ${mdPath}`);
 }
 
 main().catch(e => {
-  // Never abort the run over one file: fall back to the template README so the
-  // remaining files in the batch still get generated.
-  console.error(`Unexpected failure for ${basename}:`, e);
-  const label = platform.charAt(0).toUpperCase() + platform.slice(1);
-  fs.writeFileSync(mdPath, sanitizeReadmeMd(fallbackReadme({ label, url: '', statement: null, meta: null })) + '\n');
-  console.log(`Generated (fallback): ${mdPath}`);
+  // Never abort the batch over one file, and never leave a half-written README.
+  console.error(`::warning::Unexpected failure for ${basename}: ${e && e.message}`);
+  process.exit(0);
 });
