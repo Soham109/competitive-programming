@@ -294,8 +294,16 @@ async function callModel(prompt) {
       await new Promise(r => setTimeout(r, 5000 * (attempt + 1)));
       continue;
     }
-    const data = await res.json();
-    if (!res.ok || !data.choices) { console.error('API error:', JSON.stringify(data)); return null; }
+    const raw = await res.text();
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      console.error(`attempt ${attempt}: HTTP ${res.status} with unparseable body (${raw.length} bytes), retrying`);
+      await new Promise(r => setTimeout(r, 5000 * (attempt + 1)));
+      continue;
+    }
+    if (!res.ok || !data.choices?.length) { console.error('API error:', JSON.stringify(data)); return null; }
     return cleanOutput(data.choices[0].message.content);
   }
   return null;
@@ -316,4 +324,11 @@ async function main() {
   console.log(`Generated: ${mdPath}`);
 }
 
-main().catch(e => { console.error(e); process.exit(1); });
+main().catch(e => {
+  // Never abort the run over one file: fall back to the template README so the
+  // remaining files in the batch still get generated.
+  console.error(`Unexpected failure for ${basename}:`, e);
+  const label = platform.charAt(0).toUpperCase() + platform.slice(1);
+  fs.writeFileSync(mdPath, sanitizeReadmeMd(fallbackReadme({ label, url: '', statement: null, meta: null })) + '\n');
+  console.log(`Generated (fallback): ${mdPath}`);
+});
