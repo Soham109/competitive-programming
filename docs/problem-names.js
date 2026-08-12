@@ -2,6 +2,7 @@
 window.PROBLEM_NAMES = {
   "codeforces": {
     "1004B": "Sonya and Exhibition",
+    "1057B": "DDoS",
     "1062A": "A Prank",
     "1062B": "Math",
     "1119B": "Alyona and a Narrow Fridge",
