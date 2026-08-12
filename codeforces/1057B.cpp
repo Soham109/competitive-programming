@@ -42,6 +42,8 @@ void solve() {
     //     r++;
     // }
     // cout<<ms<<endl;
+
+    
     int ans = 0;
     // Try every starting point
     rep(l,0,n) {

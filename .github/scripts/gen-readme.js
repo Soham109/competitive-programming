@@ -156,7 +156,25 @@ Produce EXACTLY these sections and nothing else:
 2-5 sentences. State the SINGLE key observation that cracks the problem and WHY it is true (the "aha"): an invariant, a divisibility fact, a greedy exchange argument, a reformulation, etc. Name any non-obvious math fact explicitly. Do NOT describe code structure here.
 
 ## Approach
-A derivation, not a code walkthrough. Lead the reader from the observation to the algorithm: what quantity is tracked, what choices exist, why the method is correct and sufficient. Numbered list of 3-6 GENUINE reasoning steps. Each step starts DIRECTLY with the substance — do NOT prefix steps with a bold label like "**Count constraints:**" or "**Validate:**". Every step must carry justification ("because...", "this guarantees...", "it suffices to..."). BANNED narration: "read the input", "initialize a variable", "loop over the array", "call the function", "print the answer".
+A derivation, not a code walkthrough. Lead the reader from the observation to the algorithm, covering what quantity is tracked, what choices exist, and why the method is correct and sufficient. Numbered list of 3-6 GENUINE reasoning steps. Each step starts DIRECTLY with the substance, with no bold label prefix like "**Count constraints:**" or "**Validate:**". Every step must carry justification ("because...", "this guarantees...", "it suffices to...").
+
+Never state control flow BARE. Naming what the code does is fine, and often necessary, but every
+mechanic must arrive attached to the reason it is correct or the reason it is enough.
+- BARE, banned: "Fix a left endpoint and set the running total to zero."
+- BARE, banned: "Grow the right pointer, adding the next element to the sum at each step."
+- GOOD: "For each starting index we extend the window one element at a time and carry the sum
+  forward. Recomputing each window from scratch would cost a factor of $n$ more, and carrying it
+  forward loses nothing, because extending the window by one position only ever adds a single term."
+Also banned outright, with or without justification, because they carry no information at all:
+"read the input", "initialize a variable", "call the function", "print the answer".
+
+Do NOT allocate one numbered step per loop or per line of code. Steps are units of REASONING, not
+units of syntax. A plain nested scan is ONE step ("we try every starting position and extend the
+window rightwards, because..."), never three steps for the outer loop, the inner loop and the update.
+No step may open by setting up a loop variable or a counter. Open with the idea, and mention the
+variable later in the sentence if it helps. If the algorithm is genuinely simple, THREE well-argued
+steps beat six padded ones. Where the real content is a case analysis, give each case its own step
+or sub-bullet, since that is where a reader actually needs help.
 
 ## Complexity
 - **Time:** $O(\\cdot)$ — one clause tied to the real bottleneck.
@@ -187,21 +205,42 @@ HARD RULES:
 - Be direct and technical. No filler ("We can observe that", "It is clear", "Simply", "Note that").
 - Output ONLY the markdown starting at "# {TITLE}". Do NOT wrap it in code fences.
 
-VOICE — this must read like a person explaining the problem to a friend, not like generated text:
-- NO COLONS in prose. A colon mid-sentence is the strongest tell that text was machine-written.
+PERSON — these are the repo owner's own notes on their own solution:
+- Write in first person plural ("we") or plain imperative ("sort the array", "walk the prefix sums").
+  This is how every real editorial reads.
+- NEVER refer to whoever wrote the code in the third person. The words "the author", "the writer",
+  "the programmer", "the submitter", "the solution's author" must not appear. There is no third party
+  here, and describing the reader to themselves is the clearest possible sign the text was generated.
+- NEVER comment on how the code came to be, or on anything that is not live code. Do not mention
+  commented-out blocks, abandoned attempts, scratch notes, earlier drafts, what was "first tried",
+  or what the code "avoids doing". Document what the working code does, nothing about its history.
+  WRONG: "the commented-out two-pointer attempt shows the author first tried a linear approach"
+  RIGHT: (say nothing at all about it)
+- Do not praise or judge the solution ("this elegant trick", "a clever choice", "cleanly handles").
+
+VOICE — warm, explanatory, unhurried. Teach the reasoning to someone seeing the problem for the
+first time. Full connected sentences that carry the reader from one thought to the next, NOT
+compressed technical shorthand:
+- Explain the chain of reasoning out loud. Sentences that link ideas are exactly right here, so
+  "This is because...", "Thus...", "which means...", "so..." and "The key insight is that..." are
+  all encouraged. Never strip a sentence down until it only makes sense to someone who already
+  knows the answer.
+- WRONG (too compressed): "The condition $\\sum r_i > 100t$ is the same as $\\sum (r_i - 100) > 0$."
+  RIGHT (explains it): "A window counts as an attack when its sum beats $100$ per element. This is
+  because the threshold grows with the window length, so subtracting $100$ from every value turns a
+  moving target into a fixed one."
+- Prefer a flowing paragraph over clipped fragments. Do not chase variety by inserting short blunt
+  sentences; let each sentence run as long as the idea genuinely needs.
+- NO COLONS in prose. A colon mid-sentence is a strong tell that text was machine-written.
   WRONG: "The trick is this: sort the array first."   RIGHT: "The trick is to sort the array first."
   WRONG: "Two cases arise: the even case and the odd case."   RIGHT: "Two cases arise, one even and one odd."
-  WRONG: "**Key idea:** the sum is invariant."   RIGHT: "The sum never changes."
+  WRONG: "**Key idea:** the sum is invariant."   RIGHT: "The key idea is that the sum never changes."
   The ONLY colons allowed in the whole document are the "**Time:**" and "**Space:**" labels in Complexity.
 - NO em-dashes (—) in prose. Use a comma, a full stop, or restructure the sentence.
-- Vary sentence length. Machine text marches at a uniform medium length; a person mixes a short blunt
-  sentence against a longer one that works through the reasoning.
-- Do NOT open consecutive sentences or steps with the same word or construction.
 - Never use "Moreover", "Furthermore", "Additionally", "It is worth noting", "Importantly",
-  "leverage", "utilize", "delve", "crucial", "robust", "seamless".
+  "leverage", "utilize", "delve", "crucial", "robust", "seamless". These are filler, unlike the
+  genuine connectives above, which carry meaning.
 - Do not restate a point you already made in different words to pad a paragraph. Say it once.
-- Write "we" or the imperative like a real editorial does. Do not narrate your own process
-  ("Let us now consider", "In this section we will").
 
 LATEX CRITICAL RULES — violations cause visible rendering bugs in the browser:
 - $...$ must contain ONLY a valid LaTeX math expression: variables, formulas, indices, complexities.
