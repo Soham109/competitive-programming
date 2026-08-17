@@ -16,6 +16,7 @@ window.PROBLEM_NAMES = {
     "1693A": "Directional Increase",
     "1697C": "awoo's Favorite Problem",
     "1738C": "Even Number Addicts",
+    "1846D": "Rudolph and Christmas Tree",
     "1882B": "Sets and Union",
     "1900C": "Anji's Binary Tree",
     "1931D": "Divisible Pairs",
