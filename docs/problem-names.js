@@ -12,6 +12,7 @@ window.PROBLEM_NAMES = {
     "1406B": "Maximum Product",
     "1420B": "Rock and Lever",
     "1530C": "Pursuit",
+    "1559C": "Mocha and Hiking",
     "1638C": "Inversion Graph",
     "1693A": "Directional Increase",
     "1697C": "awoo's Favorite Problem",
