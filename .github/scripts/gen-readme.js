@@ -252,6 +252,12 @@ LATEX CRITICAL RULES — violations cause visible rendering bugs in the browser:
 - Pick ONE style per concept in each sentence: either $dp[i]$ (LaTeX) or \`dp[i]\` (code span). Never both for the same thing in the same clause.
 - NEVER put LaTeX commands inside backticks. WRONG: \`\\pmod{10^9+7}\` or \`dp[i - c_j] \\pmod{10^9 + 7}\`. CORRECT: $\\pmod{10^9+7}$ or $dp[i - c_j] \\pmod{10^9 + 7}$.
 - NEVER use \\\\text{} or \\\\texttt{} for code variable names. WRONG: $a \\geq \\text{last\\_end}$ or $\\texttt{sum}$. CORRECT: $a \\geq$ \`last_end\` or \`sum\`.
+- NEVER split ONE formula around a code span. The rule above applies only when the math
+  fragment is already COMPLETE on its own ($a \\geq$ is complete). If a code identifier is an
+  ARGUMENT inside a formula, write the whole formula as math and drop the backticks.
+  WRONG: $\\gcd($ \`g\` $, a_j)$        GOOD: $\\gcd(g, a_j)$
+  WRONG: $\\max($ \`lo\` $,$ \`hi\` $)$  GOOD: $\\max(lo, hi)$
+  A $...$ fragment that ends on an open bracket is ALWAYS this bug.
 - Sanity check before outputting: delete all $...$. The remaining prose must be grammatically correct English.`;
 
 const GOLD = `

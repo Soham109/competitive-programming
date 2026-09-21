@@ -30,6 +30,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check the markdown sanitizer
+        run: node --test docs/sanitize-md.test.js
+
       - name: Find .cpp files needing a README
         id: find
         run: |

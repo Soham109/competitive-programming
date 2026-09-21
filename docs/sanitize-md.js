@@ -57,6 +57,17 @@
 
     out = demoteCodeVarsInMath(out);
 
+    // Model splits ONE formula around a code span: $\gcd($ `g` $, a_j)$.
+    // Both $ pairs are fragments of a single expression, so the renderer pairs the
+    // delimiters wrong and swallows the following prose into math mode. Detected by
+    // the head ending on an open paren and the tail resuming with `,` or `)`. Must
+    // run before the "code span closed with $" rule below, which would otherwise
+    // consume the middle $ and mangle it further.
+    out = out.replace(
+      /\$([^$\n]*\()\$\s*`([^`\n]+)`\s*\$([,)][^$\n]*)\$/g,
+      (_, head, ident, tail) => `$${head}${ident.replace(/_/g, "\\_")}${tail}$`
+    );
+
     // Backtick spans that contain LaTeX commands → math mode
     out = out.replace(/`([^`\n]+)`/g, (match, inner) => {
       if (isLatexOnly(inner)) return `$${inner.trim()}$`;
