@@ -10,6 +10,7 @@ window.PROBLEM_NAMES = {
     "1260B": "Obtain Two Zeroes",
     "1366B": "Shuffle",
     "1406B": "Maximum Product",
+    "1407B": "Big Vova",
     "1420B": "Rock and Lever",
     "1530C": "Pursuit",
     "1559C": "Mocha and Hiking",
