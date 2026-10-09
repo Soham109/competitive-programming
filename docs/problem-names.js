@@ -36,6 +36,7 @@ window.PROBLEM_NAMES = {
     "2161C": "Loyalty",
     "2169C": "Range Operation",
     "2176C": "Odd Process",
+    "2195E": "Idiot First Search",
     "2200D": "Portal",
     "2202B": "ABAB Construction",
     "2218D": "The 67th OEIS Problem",
